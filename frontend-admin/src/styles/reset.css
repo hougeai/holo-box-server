@@ -1,0 +1,36 @@
+/*盒模型计算方式：宽度包含内边距和边框*/
+html {
+  box-sizing: border-box;
+}
+
+*,
+::before,
+::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: inherit;
+}
+/*  重置链接样式 inherit 代表继承父元素*/
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+a:hover,
+a:link,
+a:visited,
+a:active {
+  text-decoration: none;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+input,
+textarea {
+  outline: none;
+  border: none;
+  resize: none;
+}

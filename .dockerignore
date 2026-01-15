@@ -1,0 +1,11 @@
+.git
+**/.gitignore
+**/node_modules
+**/dist
+**/pnpm-lock.yaml
+**/.venv
+**/__pycache__
+**/logs
+**/*.sqlite3*
+**/.env
+**/*.pcm

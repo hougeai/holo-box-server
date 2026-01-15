@@ -1,0 +1,78 @@
+# 多阶段构建 - 构建阶段
+FROM registry.cn-shanghai.aliyuncs.com/hougeai/node:22-alpine AS builder
+# 安装 pnpm
+RUN npm install -g pnpm
+# 设置 npm 镜像源
+RUN npm config set registry https://registry.npmmirror.com
+
+# 设置工作目录
+WORKDIR /app
+
+# 创建两个项目的目录
+RUN mkdir -p frontend-user assets-generator frontend-admin
+
+# ===== 构建前端项目 =====
+# 进入用户前端目录
+WORKDIR /app/frontend-user
+# 复制package文件
+COPY frontend-lx/package*.json ./
+# 安装依赖
+RUN pnpm i
+# 复制源代码
+COPY frontend-lx/. .
+# 构建应用（优先使用构建时传入的环境变量）
+ARG VITE_BASE_URL
+ARG VITE_OSS_BUCKET_URL
+ENV VITE_BASE_URL=${VITE_BASE_URL}
+ENV VITE_OSS_BUCKET_URL=${VITE_OSS_BUCKET_URL}
+RUN cp .env.example .env
+# 构建生产版本
+RUN pnpm build
+
+# ===== 构建 assets-generator =====
+# 进入 assets-generator 目录
+WORKDIR /app/assets-generator
+# 复制package文件
+COPY assets-generator/package*.json ./
+# 安装依赖
+RUN pnpm i
+# 复制源代码
+COPY assets-generator/. .
+RUN echo "VITE_BASE_URL=$VITE_BASE_URL" > .env
+# 构建生产版本
+RUN pnpm build
+
+# 进入管理后台目录
+WORKDIR /app/frontend-admin
+COPY frontend-admin/package*.json ./
+RUN pnpm i
+COPY frontend-admin/. .
+ARG VITE_BASE_API
+ARG VITE_OSS_BUCKET_URL
+ENV VITE_BASE_API=${VITE_BASE_API}
+ENV VITE_OSS_BUCKET_URL=${VITE_OSS_BUCKET_URL}
+RUN cp .env.example .env
+RUN pnpm build
+
+
+# 多阶段构建 - 运行阶段
+FROM registry.cn-shanghai.aliyuncs.com/hougeai/nginx:alpine
+
+# 创建应用目录
+RUN mkdir -p /usr/share/nginx/html/user \
+             /usr/share/nginx/html/admin
+
+# 从构建阶段复制构建产物到nginx目录
+COPY --from=builder /app/frontend-user/dist /usr/share/nginx/html/user
+COPY --from=builder /app/frontend-admin/dist /usr/share/nginx/html/admin
+# 复制构建的 assets-generator 到nginx目录
+COPY --from=builder /app/assets-generator/dist /usr/share/nginx/html/assets-generator
+
+# 复制自定义nginx配置
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+# 暴露端口
+EXPOSE 8077 8078
+
+# 启动nginx
+CMD ["nginx", "-g", "daemon off;"]

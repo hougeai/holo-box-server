@@ -1,0 +1,17 @@
+repos:
+  # Python 代码检查
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix] # --exit-non-zero-on-fix 修复后会阻止提交，需要再次add commit
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: lint-staged-frontend-admin
+        name: lint-staged (frontend-admin)
+        entry: bash -lc 'cd frontend-admin && pnpm exec lint-staged'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+  

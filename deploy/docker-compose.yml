@@ -1,0 +1,28 @@
+services:
+  frontend:
+    image: registry.cn-shanghai.aliyuncs.com/hougeai/xiaozhipro-frontend:v1.0-gq
+    ports:
+      - "8078:8078"
+    depends_on:
+      - backend
+
+  backend:
+    image: registry.cn-shanghai.aliyuncs.com/hougeai/xiaozhipro-backend:v1.0-gq
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ADMIN_FE_URL=https://ybakxm--8087.app.cloudstudio.work
+      - USER_FE_URL=http://1.95.14.72:8078
+      - ALIPAY_SERVER_URL=https://openapi.alipay.com/gateway.do
+      - ALIPAY_APP_ID=2021005199624623
+      - ALIPAY_APP_PRIVATE_KEY=/app/data/certs/alipay_app_private_key.pem
+      - ALIPAY_PUBLIC_KEY=/app/data/certs/alipay_public_key.pem
+      - ALIPAY_NOTIFY_URL=http://1.95.14.72:3002/alipay/notify
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6378
+      - OSS_ENDPOINT=1.95.14.72:9000
+      - OSS_BUCKET_URL=http://1.95.14.72:9000/xiaozhi-pro
+      - KB_BASE_URL=http://1.95.14.72:8080/api/v1
+      - KB_API_KEY=sk-TD88z6EG9QqCUV3T8NyVMoXZolIcGPPY9LPSr7k7n9Lk9wXQ

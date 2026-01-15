@@ -1,0 +1,33 @@
+# 构建阶段
+FROM registry.cn-shanghai.aliyuncs.com/hougeai/python:3.12-slim
+
+# 设置时区为 UTC+8
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# 替换 Debian 镜像源（先清空所有源）
+RUN rm -f /etc/apt/sources.list.d/* && \
+    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm main contrib non-free non-free-firmware\n\
+deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-updates main contrib non-free non-free-firmware\n\
+deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-backports main contrib non-free non-free-firmware\n\
+deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware" \
+> /etc/apt/sources.list
+# 安装 FFmpeg 用于音频处理
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# 设置工作目录
+WORKDIR /app
+
+COPY backend/pyproject.toml .
+# --no-cache-dir不保存缓存文件，镜像更小
+RUN pip install --no-cache-dir . -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 复制项目文件
+COPY backend/app/. .
+
+RUN cp .env.example .env
+RUN chmod +x run.sh
+
+# 暴露端口
+EXPOSE 3002
+
+# 启动命令
+CMD ["./run.sh", "docker"]
