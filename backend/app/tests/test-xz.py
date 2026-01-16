@@ -1,3 +1,7 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 import httpx
 
@@ -22,5 +26,11 @@ def test_agent():
         f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
 
 
+def test_oss():
+    from core.minio import oss
+
+    oss.set_bucket_public_read()
+
+
 if __name__ == '__main__':
-    test_agent()
+    test_oss()

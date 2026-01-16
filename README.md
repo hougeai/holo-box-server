@@ -102,6 +102,11 @@ docker-compose up -d
 ```
 # 安装 pre-commit：
 pip install pre-commit
+# or
+sudo apt install pipx
+pipx install pre-commit
+# 安装 Git 钩子
+pre-commit install
 ```
 
 ### 5.1 Python 代码规范

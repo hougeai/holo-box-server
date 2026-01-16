@@ -14,7 +14,7 @@ export default defineConfig(({ command, mode }) => {
   const { VITE_PORT, VITE_PUBLIC_PATH, VITE_USE_PROXY, VITE_BASE_API, VITE_BASE_API_URL } = viteEnv
 
   return {
-    base: VITE_PUBLIC_PATH || '/',
+    base: VITE_PUBLIC_PATH || './',
     resolve: {
       alias: {
         '~': rootPath,
