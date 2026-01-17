@@ -1,4 +1,5 @@
 import jwt
+import json
 import aiohttp
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request
@@ -195,15 +196,23 @@ async def wx_login(request: WxLoinRequest):
             async with session.get('https://api.weixin.qq.com/sns/jscode2session', params=params) as response:
                 if response.status != 200:
                     logger.error(f'请求微信服务器失败: {response.status}')
-                    return None
-                data = await response.json()
-                openid = data.get('openid')
+                    return Fail(msg=f'请求微信服务器失败: {response.status}')
+                response_text = await response.text()
+                try:
+                    data = json.loads(response_text)
+                    logger.info(f'微信服务器返回: {data}')
+                except json.JSONDecodeError:
+                    logger.error(f'微信服务器返回非JSON格式: {response_text}')
+                    return Fail(msg=f'微信服务器返回非JSON格式: {response_text}')
+                openid = data.get('openid', None)
+                if not openid:
+                    return Fail(msg=f'微信服务器返回错误: {data.get("errmsg")}')
                 # 查库：如果没有则注册
                 user = await user_controller.get_by_openid(openid)
                 if not user:
                     obj = UserCreate(
                         openid=openid,
-                        user_name=request.nikename,
+                        user_name=request.nickname,
                         avatar=request.avatar,
                     )
                     user = await user_controller.create_user(obj)
