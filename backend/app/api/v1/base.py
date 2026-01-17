@@ -1,4 +1,5 @@
 import jwt
+import aiohttp
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request
 from core.config import settings
@@ -6,44 +7,43 @@ from core.background import CTX_USER_ID
 from core.dependency import DependAuth
 from core.security import create_token, get_password_hash, verify_password
 from core.verifycode import RedisManager
+from core.log import logger
 from controllers import user_controller
-from models.admin import User, Role, Api, Menu, RoleApi, RoleMenu, UserOrder
+from models.admin import Api, Menu, RoleApi, RoleMenu
 from schemas.base import Fail, Success
 from schemas.login import (
     CredentialsSchema,
     JWTPayload,
     JWTOut,
-    VerifyCodeRequest,
-    RegisterRequest,
-    ResetPasswordRequest,
-    PhoneRequest,
+    WxLoinRequest,
 )
-from schemas.admin import UpdatePassword, UserCreate
+from schemas.admin import UserCreate, UpdatePassword
 
 router = APIRouter()
 code_manager = RedisManager()
 
 
-def generate_token_response(user, remember: bool = False):
+def generate_token_response(user, remember: bool = False, token_only: bool = False):
     # 生成过期时间
     access_token_expires = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     access_expire = datetime.now(timezone.utc) + access_token_expires
-    refresh_token_expires = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
-    refresh_expire = datetime.now(timezone.utc) + refresh_token_expires
-    # 生成 jwt token；字段id exp必须的，其它不宜过多
+    access_token = create_token(
+        data=JWTPayload(
+            user_id=user.user_id,
+            exp=access_expire,
+        )
+    )
+    if token_only:
+        return access_token
     data = JWTOut(
-        access_token=create_token(
-            data=JWTPayload(
-                user_id=user.user_id,
-                exp=access_expire,
-            )
-        ),
+        access_token=access_token,
         user_id=user.user_id,
     )
-    refresh_token = create_token(data=JWTPayload(user_id=user.user_id, exp=refresh_expire))
     # 将 Pydantic 模型的所有字段转换为 Python 字典
     response = Success(data=data.model_dump())
-    # 放在cookie中，前端 JavaScript 无法访问，localStorage 中不保存
+    refresh_token_expires = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_expire = datetime.now(timezone.utc) + refresh_token_expires
+    refresh_token = create_token(data=JWTPayload(user_id=user.user_id, exp=refresh_expire))
     if remember:
         max_age = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     else:
@@ -51,10 +51,10 @@ def generate_token_response(user, remember: bool = False):
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
-        httponly=True,  # 是指前端js无法读取
+        httponly=True,
         secure=False if settings.ENVIRONMENT == 'dev' else True,
         max_age=max_age,
-        samesite='none',  # 前后端分离部署，不是同一个域
+        samesite='none',
     )
     return response
 
@@ -118,16 +118,6 @@ async def get_userinfo():
     if not user_obj:
         return Fail(msg='用户不存在')
     data = await user_obj.to_dict(exclude_fields=['password', 'id'])
-    # 获取用户角色信息
-    role = await Role.filter(id=user_obj.role_id).first()
-    data['role_name'] = role.name if role else ''
-    data['role_desc'] = role.desc if role else ''
-    # 获取用户角色到期信息
-    data['role_expire'] = ''
-    if role.id > 3:
-        exist_orders = await UserOrder.filter(user_id=user_id, role_id=role.id, is_expired=False).order_by('-expire_at')
-        if exist_orders:
-            data['role_expire'] = (exist_orders[0].expire_at).isoformat()
     return Success(data=data)
 
 
@@ -191,107 +181,36 @@ async def update_user_password(request: UpdatePassword):
     return Success(msg='修改成功')
 
 
-# 用户注册相关API
-@router.post('/verifycode', summary='发送验证码')
-async def send_verify_code(request: VerifyCodeRequest):
-    # 检查正常用户中邮箱是否已注册，注销用户可以继续用这个邮箱
-    user = await user_controller.get_by_email(request.email, is_del=False)
-    if user:
-        return Fail(msg='邮箱已注册')
-    # 发送验证码
-    success, msg = await code_manager.generate_code(request.email)
-    if not success:
-        return Fail(msg=msg)
-    return Success(msg=msg)
-
-
-@router.post('/register', summary='用户注册')
-async def register(request: RegisterRequest):
-    # 验证验证码
-    success, msg = await code_manager.verify_code(request.email, request.verification_code)
-    if not success:
-        return Fail(msg=msg)
-    # 发送验证码时已验证过邮箱，先查询是否是is_del；如果不存在user说明是新用户，存在则是注销用户，需要恢复
-    user = await user_controller.get_by_email(request.email, is_del=True)
-    if not user:
-        obj = UserCreate(
-            user_name=request.user_name,
-            email=request.email,
-            password=request.password,
-        )
-        user = await user_controller.create_user(obj)
-    else:
-        await user_controller.update(
-            id=user.id,
-            obj_in={'is_del': False, 'user_name': request.user_name, 'password': get_password_hash(request.password)},
-        )
-    return Success(msg='注册成功')
-
-
-@router.post('/forgot_password', summary='忘记密码')
-async def forgot_password(request: VerifyCodeRequest):
-    user = await user_controller.get_by_email(request.email)
-    if not user:
-        return Fail(msg='邮箱未注册')
-    # 使用Redis管理器生成重置令牌并发送重置密码链接
-    success, msg = await code_manager.generate_reset_token(request.email)
-    if not success:
-        return Fail(msg=msg)
-    return Success(msg=msg)
-
-
-@router.post('/reset_password', summary='重置密码')
-async def reset_password(request: ResetPasswordRequest):
-    # 验证重置令牌
-    success, msg = await code_manager.verify_reset_token(request.token)
-    if not success:
-        return Fail(msg=msg)
-    # 更新用户密码
-    user = await user_controller.get_by_email(email=msg)
-    user.password = get_password_hash(request.new_password)
-    await user.save()
-    return Success(msg='密码重置成功')
-
-
-# 手机号注册相关
-@router.post('/phone_code', summary='发送验证码')
-async def send_phone_code(request: PhoneRequest):
-    # 发送验证码
-    success, msg = await code_manager.generate_phone_code(request.phone)
-    if not success:
-        return Fail(msg=msg)
-    return Success(msg=msg)
-
-
-@router.post('/phone_login', summary='手机号注册&登录')
-async def phone_login(request: PhoneRequest):
-    # 验证验证码
-    success, msg = await code_manager.verify_phone_code(request.phone, request.code)
-    if not success:
-        return Fail(msg=msg)
-    # 验证手机号是否已注册
-    user = await user_controller.get_by_phone(request.phone)
-    if not user:
-        # 注册新用户
-        obj = UserCreate(
-            user_name='手机注册用户',
-            phone=request.phone,
-            inviter_id=request.inviter_id,
-        )
-        user = await user_controller.create_user(obj)
-    if user.is_del:
-        # 注销用户恢复
-        await user_controller.update(id=user.id, obj_in={'is_del': False})
-    # 更新最后登录时间
-    await user_controller.update_last_login(user.user_id)
-    return generate_token_response(user, request.remember)
-
-
-@router.post('/delete_account', summary='注销账号')
-async def delete_account(user_id: str = None, user: User = DependAuth):
-    if user_id is not None:
-        user = await user_controller.get_by_user_id(user_id)
-    # 先删除用户
-    await user_controller.update(id=user.id, obj_in={'is_del': True})
-    # 再删除用户关联的资源
-    return Success(msg='注销成功')
+# 小程序用户注册登录
+@router.post('/wx_login', summary='小程序用户注册登录')
+async def wx_login(request: WxLoinRequest):
+    params = {
+        'appid': settings.MP_APPID,
+        'secret': settings.MP_SECRET,
+        'js_code': request.code,
+        'grant_type': 'authorization_code',
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://api.weixin.qq.com/sns/jscode2session', params=params) as response:
+                if response.status != 200:
+                    logger.error(f'请求微信服务器失败: {response.status}')
+                    return None
+                data = await response.json()
+                openid = data.get('openid')
+                # 查库：如果没有则注册
+                user = await user_controller.get_by_openid(openid)
+                if not user:
+                    obj = UserCreate(
+                        openid=openid,
+                        user_name=request.nikename,
+                        avatar=request.avatar,
+                    )
+                    user = await user_controller.create_user(obj)
+                access_token = generate_token_response(user, token_only=True)
+                data['user_id'] = user.user_id
+                data['access_token'] = access_token
+                return Success(data=data)
+    except Exception as e:
+        logger.error(f'请求微信服务器失败: {e}')
+        return Fail(msg=f'请求微信服务器失败: {e}')

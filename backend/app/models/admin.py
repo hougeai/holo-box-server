@@ -12,7 +12,10 @@ class User(BaseModel, TimestampMixin):
     user_name = fields.CharField(max_length=20, description='用户名称', index=True)
     password = fields.CharField(max_length=128, null=True, description='密码')
     email = fields.CharField(max_length=255, null=True, unique=True, description='邮箱', index=True)
-    wxid = fields.CharField(max_length=255, null=True, unique=True, description='微信ID', index=True)
+    wxid = fields.CharField(max_length=255, null=True, unique=True, description='微信ID，用户前端注册使用', index=True)
+    openid = fields.CharField(
+        max_length=255, null=True, unique=True, description='微信OpenID，用户小程序登录使用', index=True
+    )
     phone = fields.CharField(max_length=20, null=True, unique=True, description='电话', index=True)
     avatar = fields.CharField(max_length=255, null=True, description='头像')
     is_active = fields.BooleanField(default=True, description='是否活跃', index=True)  # 冻结用户

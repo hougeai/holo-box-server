@@ -10,6 +10,7 @@ class UserCreate(BaseModel):
     password: Optional[str] = Field(default=None, example='123456ai')
     email: Optional[EmailStr] = Field(default=None, example='admin@qq.com')
     wxid: Optional[str] = Field(default=None, example='admin')
+    openid: Optional[str] = Field(default=None, example='admin')
     phone: Optional[str] = Field(default=None, example='12345678901')
     avatar: Optional[str] = Field(default=None, example='https://avatars.githubusercontent.com/u/23102037?s=96&v=4')
     is_active: Optional[bool] = Field(default=True)
@@ -21,6 +22,7 @@ class UserUpdate(BaseModel):
     user_name: Optional[str] = None
     email: Optional[EmailStr] = None
     wxid: Optional[str] = None
+    openid: Optional[str] = None
     phone: Optional[str] = None
     avatar: Optional[str] = None
     is_active: Optional[bool] = None

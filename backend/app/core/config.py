@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # JWT 配置
     JWT_SECRET_KEY: str = os.getenv('JWT_SECRET_KEY', 'secret_key')
     JWT_ALGORITHM: str = 'HS256'
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 默认1天
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 默认30天
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 365  # 默认365天
     # 短信服务
     SMS_USER: str = os.getenv('SMS_USER', '')
@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     XIAOZHI_OTA_URL: str = os.getenv('XIAOZHI_OTA_URL', '')
     # 小智AI API
     XZ_API_URL: str = os.getenv('XZ_API_URL', '')
+    # 小程序相关配置
+    MP_APPID: str = os.getenv('MP_APPID', '')
+    MP_SECRET: str = os.getenv('MP_SECRET', '')
     # 数据库配置
     TORTOISE_ORM: dict = {
         'connections': {

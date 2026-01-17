@@ -4,7 +4,6 @@ from fastapi.exceptions import HTTPException
 from fastapi.routing import APIRoute
 
 from core.security import get_password_hash, verify_password
-from core.config import settings
 from models.admin import (
     User,
     Role,
@@ -53,6 +52,9 @@ class UserController(CRUDBase[User, UserCreate, UserUpdate]):
     async def get_by_wxid(self, wxid: str) -> Optional[User]:
         return await self.model.filter(wxid=wxid).first()
 
+    async def get_by_openid(self, openid: str) -> Optional[User]:
+        return await self.model.filter(openid=openid).first()
+
     async def create_user(self, obj_in: UserCreate) -> User:
         if obj_in.password:
             obj_in.password = get_password_hash(password=obj_in.password)
@@ -76,15 +78,6 @@ class UserController(CRUDBase[User, UserCreate, UserUpdate]):
         if user.is_del:
             raise HTTPException(status_code=400, detail='用户已注销，请重新注册！')
         return user
-
-    async def reset_password(self, user_id: str):
-        user = await self.get_by_user_id(user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail='用户不存在')
-        if user.is_superuser:
-            raise HTTPException(status_code=403, detail='不允许重置超级管理员密码')
-        user.password = get_password_hash(password=settings.SUPER_ADMIN_PASSWORD)
-        await user.save()
 
 
 user_controller = UserController()
