@@ -210,11 +210,7 @@ async def wx_login(request: WxLoinRequest):
                 # 查库：如果没有则注册
                 user = await user_controller.get_by_openid(openid)
                 if not user:
-                    obj = UserCreate(
-                        openid=openid,
-                        user_name=request.nickname,
-                        avatar=request.avatar,
-                    )
+                    obj = UserCreate(openid=openid, user_name='微信用户')
                     user = await user_controller.create_user(obj)
                 access_token = generate_token_response(user, token_only=True)
                 data['user_id'] = user.user_id

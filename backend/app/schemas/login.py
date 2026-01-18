@@ -22,5 +22,3 @@ class JWTPayload(BaseModel):
 #  小程序注册登录
 class WxLoinRequest(BaseModel):
     code: str
-    nickname: Optional[str] = None
-    avatar: Optional[str] = None
