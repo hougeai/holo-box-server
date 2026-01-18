@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 from .config import settings
 from .log import logger
 
@@ -6,51 +7,226 @@ from .log import logger
 class XZService:
     def __init__(self):
         self.base_url = settings.XZ_API_URL
-        self.headers = {'Authorization': 'Bearer'}
+        self.headers = {'Authorization': f'Bearer {settings.XZ_TOKEN}'}
+
+    async def init_headers(self):
+        for i in range(5):
+            res = await self._get_token()
+            if res:
+                return
+            await asyncio.sleep(1)
+            logger.error(f'获取XZ API TOKEN失败，正在重试 {i+1}...')
+        raise Exception('获取XZ API TOKEN失败，多次重试后无法完成初始化')
 
     async def _make_request(self, method, url, **kwargs):
         """通用HTTP请求方法"""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(method, url, headers=self.headers, **kwargs) as response:
-                    if response.status != 200:
-                        logger.error(f'请求失败 [{method} {url}]: {response.status}')
-                        return None
-                    data = await response.json()
-                    return data
-        except Exception as e:
-            logger.error(f'请求失败 [{method} {url}]: {e}')
-            return None
+        max_retries = 2  # token失效时最多重试1次
+        for attempt in range(max_retries):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.request(method, url, headers=self.headers, **kwargs) as response:
+                        if response.status == 401:
+                            data = await response.json()
+                            if data.get('message') == 'Invalid token':
+                                logger.warning('Token失效，正在重新获取...')
+                                await self.init_headers()
+                                if attempt < max_retries - 1:
+                                    continue  # 重新发起请求
+                        if response.status != 200:
+                            logger.error(f'请求失败 [{method} {url}]: {response.status}')
+                            return None
+                        data = await response.json()
+                        logger.info(f'请求成功 [{method} {url}]: {data}')
+                        return data
+            except Exception as e:
+                logger.error(f'请求失败 [{method} {url}]: {e}')
+                return None
+        return None
+
+    async def _get_token(self):
+        url = f'{self.base_url}/api/developers/token'
+        res = await self._make_request('POST', url, json={'secret_key': settings.XZ_API_KEY})
+        if res.get('data', {}).get('token'):
+            self.headers['Authorization'] = f'Bearer {res["data"]["token"]}'
+            return True
+        return False
 
     async def list_agent(self):
-        """智能体列表"""
-        url = f'{self.base_url}/xiaozhi/agent/list'
-        return await self._make_request('GET', url)
+        """获取所有智能体列表"""
+        url = f'{self.base_url}/api/agents'
+        results = []
+        page = 1
+        page_size = 100
+        while True:
+            params = {'page': page, 'pageSize': page_size}
+            data = await self._make_request('GET', url, params=params)
+            if not data:
+                break
+            agents = data.get('data', [])
+            if agents:
+                results.extend(agents)
+            pagination = data.get('pagination', {})
+            has_more = pagination.get('hasMore', False)
+            if not has_more:
+                break
+            page += 1
+        return results
 
-    async def create_agent(self, name):
+    async def get_agent(self, id):
+        """获取智能体详情"""
+        url = f'{self.base_url}/api/agents/{id}'
+        data = await self._make_request('GET', url)
+        if not data:
+            return None
+        agent = data.get('data', {}).get('agent', {})
+        return agent
+
+    async def create_agent(self, obj_in):
         """创建智能体"""
-        data = {'agentName': name}
-        url = f'{self.base_url}/xiaozhi/agent'
-        return await self._make_request('POST', url, json=data)
+        data = {
+            'agent_name': obj_in.agent_name,
+            'assistant_name': obj_in.assistant_name,
+            'llm_model': obj_in.llm_model,
+            'tts_voice': obj_in.tts_voice,
+            'tts_speech_speed': obj_in.tts_speech_speed,  # 角色语速 slow normal fast
+            'tts_pitch': obj_in.tts_pitch,  # 音高
+            'asr_speed': obj_in.asr_speed,  # 语音识别速度 slow normal fast
+            'language': obj_in.language,
+            'character': obj_in.character,
+            'memory': obj_in.memory,
+            'memory_type': obj_in.memory_type,  # "OFF"、"SHORT_TERM"
+            'mcp_endpoints': obj_in.mcp_endpoints,  # 查看 官方MCP 工具接口
+        }
+        url = f'{self.base_url}/api/agents'
+        data = await self._make_request('POST', url, json=data)
+        if not data:
+            return None
+        agent = data.get('data', {})
+        return agent
 
-    async def update_agent(self, id, obj):
+    async def update_agent(self, id, obj_in):
         """更新智能体"""
-        data = {}
-        if obj.agent_name:
-            data['agentName'] = obj.agent_name
-        if obj.llm_model_id:
-            data['llmModelId'] = obj.llm_model_id
-        if obj.tts_voice_id:
-            data['ttsVoiceId'] = obj.tts_voice_id
-        if obj.system_prompt:
-            data['systemPrompt'] = obj.system_prompt
-        url = f'{self.base_url}/xiaozhi/agent/{id}'
-        return await self._make_request('PUT', url, json=data)
+        data = {
+            'agent_name': obj_in.agent_name,
+            'assistant_name': obj_in.assistant_name,
+            'llm_model': obj_in.llm_model,
+            'tts_voice': obj_in.tts_voice,
+            'tts_speech_speed': obj_in.tts_speech_speed,  # 角色语速 slow normal fast
+            'tts_pitch': obj_in.tts_pitch,  # 音高
+            'asr_speed': obj_in.asr_speed,  # 语音识别速度 slow normal fast
+            'language': obj_in.language,
+            'character': obj_in.character,
+            'memory': obj_in.memory,
+            'memory_type': obj_in.memory_type,  # "OFF"、"SHORT_TERM"
+            'mcp_endpoints': obj_in.mcp_endpoints,  # 查看 官方MCP 工具接口
+        }
+        url = f'{self.base_url}/api/agents/{id}/config'
+        data = await self._make_request('POST', url, json=data)
+        if not data:
+            return None
+        return True
 
     async def delete_agent(self, id):
         """删除智能体"""
-        url = f'{self.base_url}/xiaozhi/agent/{id}'
-        return await self._make_request('DELETE', url)
+        url = f'{self.base_url}/api/agents/delete'
+        data = {'id': id}
+        data = await self._make_request('POST', url, json=data)
+        if not data:
+            return None
+        return True
+
+    # async def get_mcp_list(self):
+    #     """获取MCP列表"""
+    #     url = f'{self.base_url}/api/agents/common-mcp-tool/list'
+    #     data = await self._make_request('GET', url)
+    #     if not data:
+    #         return None
+    #     return data.get('data', [])
+
+    async def list_llm(self):
+        """LLM模型列表"""
+        url = f'{self.base_url}/api/roles/model-list'
+        data = await self._make_request('GET', url)
+        if not data:
+            return None
+        modelList = data.get('data', {}).get('modelList', [])
+        return modelList
+
+    async def list_tts(self):
+        """TTS语音列表"""
+        url = f'{self.base_url}/api/user/tts-list'
+        data = await self._make_request('GET', url)
+        results = []
+        if data:
+            tts_voices = data.get('data', {}).get('tts_voices', {})
+            for lang, tts_List in tts_voices.items():
+                for tts_voice in tts_List:
+                    tts_voice['lang'] = lang
+                    results.append(tts_voice)
+        return results
+
+    async def list_agent_template(self):
+        """获取所有智能体模板列表：目前只有一个"""
+        url = f'{self.base_url}/api/developers/agent-templates/list'
+        params = {'page': 1, 'pageSize': 100}
+        data = await self._make_request('GET', url, params=params)
+        if not data:
+            return None
+        agents = data.get('data', {}).get('list', [])
+        return agents
+
+    async def create_agent_template(self, obj_in):
+        """获取智能体模板详情"""
+        url = f'{self.base_url}/api/developers/agent-templates-config'
+        data = {
+            'agent_name': obj_in.agent_name,
+            'character': obj_in.character,
+            'assistant_name': obj_in.assistant_name,
+            'user_name': obj_in.user_name,
+            'tts_voices': [f'{obj_in.language}:{obj_in.default_tts_voice}'],
+            'llm_model': obj_in.llm_model,
+            'languages': [obj_in.language],
+            'tts_speech_speed': obj_in.tts_speech_speed,
+            'asr_speed': obj_in.asr_speed,
+            'tts_pitch': obj_in.tts_pitch,
+            'default_tts_voice': f'{obj_in.language}:{obj_in.default_tts_voice}',
+        }
+        data = await self._make_request('POST', url, json=data)
+        if not data:
+            return None
+        return True
+
+    async def update_agent_template(self, id, obj_in):
+        """更新智能体模板"""
+        url = f'{self.base_url}/api/developers/agent-templates-config/{id}'
+        data = {
+            'id': id,
+            # 'developer_id': obj_in.developer_id,
+            'agent_name': obj_in.agent_name,
+            'character': obj_in.character,
+            'assistant_name': obj_in.assistant_name,
+            'user_name': obj_in.user_name,
+            'tts_voices': [f'{obj_in.language}:{obj_in.default_tts_voice}'],
+            'llm_model': obj_in.llm_model,
+            'languages': [obj_in.language],
+            'tts_speech_speed': obj_in.tts_speech_speed,
+            'asr_speed': obj_in.asr_speed,
+            'tts_pitch': obj_in.tts_pitch,
+            'default_tts_voice': f'{obj_in.language}:{obj_in.default_tts_voice}',
+            'tts_voice_name': obj_in.tts_voice_name,
+        }
+        data = await self._make_request('PUT', url, json=data)
+        if not data:
+            return None
+        return True
+
+    async def delete_agent_template(self, id):
+        """删除智能体模板"""
+        url = f'{self.base_url}/api/developers/agent-templates/{id}'
+        data = await self._make_request('DELETE', url)
+        if not data:
+            return None
+        return True
 
     async def bind_device(self, agentId, deviceCode):
         """绑定设备"""
@@ -67,36 +243,6 @@ class XZService:
         """设备列表"""
         url = f'{self.base_url}/xiaozhi/device/bind/{agentId}'
         return await self._make_request('GET', url)
-
-    async def list_llm(self):
-        """LLM模型列表"""
-        url = f'{self.base_url}/v1/agents/models/llm'
-        return await self._make_request('GET', url)
-
-    async def list_voice(self):
-        """TTS语音列表"""
-        url = f'{self.base_url}/v1/voices'
-        return await self._make_request('GET', url)
-
-    async def create_voice(self):
-        """创建音色栏位"""
-        url = f'{self.base_url}/v1/voice-clones'
-        return await self._make_request('POST', url, json={'model_id': 'QN_ACV'})
-
-    async def clone_voice(self, id, ref_audio, name):
-        """克隆音色"""
-        url = f'{self.base_url}/v1/voice-clones/{id}'
-        return await self._make_request('PUT', url, json={'key': ref_audio, 'name': name})
-
-    async def get_voice(self, id):
-        """获取音色"""
-        url = f'{self.base_url}/v1/voice-clones/{id}'
-        return await self._make_request('GET', url)
-
-    async def delete_voice(self, id):
-        """删除音色"""
-        url = f'{self.base_url}/v1/voice-clones/{id}'
-        return await self._make_request('DELETE', url)
 
 
 xz_service = XZService()

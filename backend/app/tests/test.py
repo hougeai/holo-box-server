@@ -2,7 +2,6 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import httpx
 
 
@@ -21,5 +20,21 @@ def test_wxlogin():
     print(response.status_code, response.json())
 
 
+def test_oss():
+    from core.minio import oss
+
+    oss.set_bucket_public_read()
+
+
+async def test_xz():
+    from core.xz_api import xz_service
+
+    res = await xz_service._get_token()
+    print(res)
+
+
 if __name__ == '__main__':
-    test_wxlogin()
+    # test_wxlogin()
+    import asyncio
+
+    asyncio.run(test_xz())

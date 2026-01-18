@@ -1,5 +1,3 @@
-import os
-import json
 import shutil
 from aerich import Command
 from fastapi import FastAPI
@@ -8,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from tortoise.expressions import Q
 from api import api_router, ota_router
 from models.admin import Api, Menu, Role, RoleMenu, RoleApi
-from models.agent import AgentTemplate
+from models.agent import AgentTemplate, Agent, LLM, Voice
 from models.device import Device
 from models.resource import Ota
 from models.enums import MenuType
@@ -29,6 +27,7 @@ from .exceptions import (
 from .log import logger
 from .config import settings
 from .middlewares import BackGroundTaskMiddleware, HttpAuditLogMiddleware, OTACORSMiddleware
+from .xz_api import xz_service
 
 
 def make_middlewares():
@@ -345,20 +344,89 @@ async def init_ota():
 async def init_agent_template():
     obj = await AgentTemplate.exists()
     if not obj:
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        agent_file = os.path.join(dir_path, '../data/agent.json')
-        agents = json.load(open(agent_file, 'r', encoding='utf-8'))
+        agents = await xz_service.list_agent_template()
         objs = [
             AgentTemplate(
                 user_id='1',
-                agent_name=agent['agentName'],
-                system_prompt=agent['systemPrompt'],
-                avatar=agent['avatar'],
-                tags=agent['tags'],
+                agent_id=agent.get('id'),
+                agent_name=agent.get('agent_name'),
+                tts_voices=agent.get('tts_voices'),
+                default_tts_voice=agent.get('default_tts_voice'),
+                llm_model=agent.get('llm_model'),
+                assistant_name=agent.get('assistant_name'),
+                user_name=agent.get('user_name'),
+                character=agent.get('character'),
+                tts_speech_speed=agent.get('tts_speech_speed'),
+                asr_speed=agent.get('asr_speed'),
+                tts_pitch=agent.get('tts_pitch'),
+                tts_voice_name=agent.get('tts_voice_name'),
             )
             for agent in agents
         ]
         await AgentTemplate.bulk_create(objs)
+
+
+async def init_agent():
+    obj = await Agent.exists()
+    if not obj:
+        agents = await xz_service.list_agent()
+        objs = [
+            Agent(
+                user_id='1',
+                agent_id=agent.get('id'),
+                agent_name=agent.get('agent_name'),
+                llm_model=agent.get('llm_model'),
+                tts_voice=agent.get('tts_voice'),
+                assistant_name=agent.get('assistant_name'),
+                user_name=agent.get('user_name'),
+                character=agent.get('character'),
+                memory=agent.get('memory'),
+                long_memory_switch=agent.get('long_memory_switch'),
+                memory_type=agent.get('memory_type'),
+                language=agent.get('language'),
+                tts_speech_speed=agent.get('tts_speech_speed'),
+                asr_speed=agent.get('asr_speed'),
+                tts_pitch=agent.get('tts_pitch'),
+                agent_template_id=agent.get('agent_template_id'),
+                mcp_endpoints=agent.get('mcp_endpoints'),
+                device_count=agent.get('deviceCount'),
+            )
+            for agent in agents
+        ]
+        await Agent.bulk_create(objs)
+
+
+async def init_llm():
+    obj = await LLM.exists()
+    if not obj:
+        llms = await xz_service.list_llm()
+        objs = [
+            LLM(
+                user_id='1',
+                name=llm.get('name'),
+                description=llm.get('description'),
+            )
+            for llm in llms
+        ]
+        await LLM.bulk_create(objs)
+
+
+async def init_voices():
+    obj = await Voice.exists()
+    if not obj:
+        voices = await xz_service.list_tts()
+        objs = [
+            Voice(
+                user_id='1',
+                language=voice.get('language'),
+                voice_id=voice.get('voice_id'),
+                voice_name=voice.get('voice_name'),
+                voice_demo=voice.get('voice_demo'),
+                public=True,
+            )
+            for voice in voices
+        ]
+        await Voice.bulk_create(objs)
 
 
 async def init_data(app: FastAPI):
@@ -370,3 +438,6 @@ async def init_data(app: FastAPI):
     await init_device()
     await init_ota()
     await init_agent_template()
+    await init_agent()
+    await init_llm()
+    await init_voices()

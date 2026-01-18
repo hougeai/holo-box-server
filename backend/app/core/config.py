@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     XIAOZHI_OTA_URL: str = os.getenv('XIAOZHI_OTA_URL', '')
     # 小智AI API
     XZ_API_URL: str = os.getenv('XZ_API_URL', '')
+    XZ_API_KEY: str = os.getenv('XZ_API_KEY', '')
+    XZ_TOKEN: str = os.getenv('XZ_TOKEN', '')
     # 小程序相关配置
     MP_APPID: str = os.getenv('MP_APPID', '')
     MP_SECRET: str = os.getenv('MP_SECRET', '')
