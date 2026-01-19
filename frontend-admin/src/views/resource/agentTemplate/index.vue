@@ -226,7 +226,7 @@ const columns = [
     },
   },
   {
-    title: '助手',
+    title: '助手昵称',
     key: 'assistant_name',
     width: 30,
     align: 'center',

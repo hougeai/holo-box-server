@@ -43,7 +43,7 @@ class AgentCreate(BaseModel):
     tts_speech_speed: Optional[str] = Field(default=None, description='TTS语速')
     asr_speed: Optional[str] = Field(default=None, description='ASR语速')
     tts_pitch: Optional[int] = Field(default=None, description='TTS音调')
-    agent_template_id: Optional[int] = Field(default=None, description='模板ID')
+    agent_template_id: Optional[str] = Field(default=None, description='模板ID')
     mcp_endpoints: Optional[list] = Field(default=None, description='MCP端点')
     device_count: Optional[int] = Field(default=0, description='设备数量')
     source: Optional[str] = Field(default=None, description='创建来源')

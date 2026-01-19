@@ -48,7 +48,7 @@ async def create_agent(
     if not res or not res['data']:
         logger.error(f'创建智能体失败: {res}')
         return Fail(code=400, msg='XZ-API创建失败')
-    obj_in.agent_id = res['data'].get('id')
+    obj_in.agent_id = str(res['data'].get('id'))
     obj_in.user_id = user_id
     # 查询智能体详情
     res = await xz_service.get_agent(obj_in.agent_id)
@@ -150,7 +150,7 @@ async def create_agent_template(
     if not res or not res['data']:
         logger.error(f'创建智能体模板失败: {res}')
         return Fail(code=400, msg='XZ-API创建失败')
-    obj_in.agent_id = res['data'].get('id')
+    obj_in.agent_id = str(res['data'].get('id'))
     obj = await agent_template_controller.create(obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)

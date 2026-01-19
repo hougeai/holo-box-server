@@ -1,6 +1,6 @@
 <script setup>
 import { h, onMounted, ref, resolveDirective, withDirectives, computed } from 'vue'
-import { NButton, NInput, NPopconfirm } from 'naive-ui'
+import { NButton, NInput, NPopconfirm, NRadioGroup, NRadio, NSpace } from 'naive-ui'
 
 import { formatDate, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
 import { useCRUD } from '@/composables'
@@ -46,6 +46,8 @@ const {
 const llmList = ref([])
 // Voice列表
 const voiceList = ref([])
+// AgentTemplate列表
+const agentTemplateList = ref([])
 // 当前播放的音频 URL
 const currentPlayingAudio = ref(null)
 
@@ -70,6 +72,47 @@ const fetchVoiceList = async () => {
     }
   } catch (error) {
     console.error('获取Voice列表失败:', error)
+  }
+}
+
+// 获取AgentTemplate列表
+const fetchAgentTemplateList = async () => {
+  try {
+    const res = await api.getAgentTemplateList()
+    if (res.data) {
+      agentTemplateList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取AgentTemplate列表失败:', error)
+  }
+}
+
+// 选择模板后填充表单
+const handleSelectTemplate = (templateAgentId) => {
+  const template = agentTemplateList.value.find((t) => t.agent_id === templateAgentId)
+  if (template) {
+    modalForm.value.agent_template_id = template.agent_id
+    modalForm.value.agent_name = template.agent_name || ''
+    modalForm.value.assistant_name = template.assistant_name || ''
+    modalForm.value.character = template.character || ''
+    modalForm.value.llm_model = template.llm_model || ''
+    modalForm.value.language = template.language || ''
+    modalForm.value.tts_voice = template.tts_voice || ''
+    modalForm.value.tts_speech_speed = template.tts_speech_speed || 'normal'
+    modalForm.value.asr_speed = template.asr_speed || 'normal'
+    modalForm.value.tts_pitch = template.tts_pitch || 0
+  } else if (templateAgentId === null) {
+    // 如果选择了"不使用模板"，重置表单为初始值
+    modalForm.value.agent_template_id = null
+    modalForm.value.agent_name = ''
+    modalForm.value.assistant_name = '盒子'
+    modalForm.value.character = ''
+    modalForm.value.llm_model = 'xz-lite'
+    modalForm.value.language = 'zh'
+    modalForm.value.tts_voice = ''
+    modalForm.value.tts_speech_speed = 'normal'
+    modalForm.value.asr_speed = 'normal'
+    modalForm.value.tts_pitch = 0
   }
 }
 
@@ -187,6 +230,7 @@ onMounted(() => {
   $table.value?.handleSearch()
   fetchLlmList()
   fetchVoiceList()
+  fetchAgentTemplateList()
 })
 
 const columns = [
@@ -371,6 +415,23 @@ const columns = [
         :model="modalForm"
         :disabled="modalAction === 'view'"
       >
+        <NFormItem label="选择模板" v-if="agentTemplateList.length > 0">
+          <NRadioGroup
+            v-model:value="modalForm.agent_template_id"
+            @update:value="handleSelectTemplate"
+          >
+            <NSpace horizontal>
+              <NRadio :value="null">不使用模板</NRadio>
+              <NRadio
+                v-for="template in agentTemplateList"
+                :key="template.agent_id"
+                :value="template.agent_id"
+              >
+                {{ template.agent_name }}
+              </NRadio>
+            </NSpace>
+          </NRadioGroup>
+        </NFormItem>
         <NFormItem
           label="智能体名称"
           path="agent_name"

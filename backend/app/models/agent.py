@@ -34,7 +34,7 @@ class Agent(BaseModel, TimestampMixin):
     tts_speech_speed = fields.CharField(max_length=64, default='normal', null=True, description='TTS语速')
     asr_speed = fields.CharField(max_length=64, default='normal', null=True, description='ASR语速')
     tts_pitch = fields.IntField(default=0, null=True, description='TTS音调')
-    agent_template_id = fields.IntField(null=True, description='模板ID')
+    agent_template_id = fields.CharField(max_length=64, null=True, index=True, description='智能体模板ID')
     mcp_endpoints = fields.JSONField(null=True, description='MCP端点')
     device_count = fields.IntField(default=0, null=True, description='设备数量')
     source = fields.CharField(max_length=64, null=True, index=True, description='创建来源')
