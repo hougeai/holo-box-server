@@ -10,7 +10,7 @@ from core.config import settings
 from controllers import agent_controller, agent_template_controller, voice_controller
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import AgentCreate, AgentUpdate, AgentTemplateCreate, AgentTemplateUpdate
-from models.agent import Agent, Voice, LLM
+from models.agent import Agent, AgentTemplate, Voice, LLM
 
 router = APIRouter()
 
@@ -21,12 +21,15 @@ async def list_agent(
     page_size: int = Query(999, description='每页数量'),
     user_id: str = Query('', description='用户ID，用于搜索'),
     agent_id: str = Query('', description='智能体ID，用于搜索'),
+    agent_name: str = Query('', description='智能体名称，用于搜索'),
 ):
     q = Q()
     if user_id:
         q &= Q(user_id=user_id)
     if agent_id:
         q &= Q(agent_id=agent_id)
+    if agent_name:
+        q &= Q(agent_name_contains=agent_name)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
     total, objs = await agent_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
@@ -82,18 +85,17 @@ async def delete_agent(
     id: int = Query(..., description='ID'),
 ):
     obj = await agent_controller.get(id=id)
-    if obj:
-        # 先判断是否有设备绑定
-        if obj.device_count > 0:
-            return Fail(code=400, msg='请先解绑当前智能体下的所有设备')
-        # 先删除远端的
-        res = await xz_service.delete_agent(obj.agent_id)
-        if not res or not res['success']:
-            return Fail(code=400, msg='XZ-API删除失败')
-        await agent_controller.remove(id=id)
-        return Success(msg='Deleted Successfully')
-    else:
+    if not obj:
         return Fail(code=400, msg='Agent not found')
+    # 先判断是否有设备绑定
+    if obj.device_count > 0:
+        return Fail(code=400, msg='请先解绑当前智能体下的所有设备')
+    # 先删除远端的
+    res = await xz_service.delete_agent(obj.agent_id)
+    if not res or not res['success']:
+        return Fail(code=400, msg='XZ-API删除失败')
+    await agent_controller.remove(id=id)
+    return Success(msg='Deleted Successfully')
 
 
 @router.get('/voice/list', summary='TTS voice 列表')
@@ -126,8 +128,11 @@ async def list_llm():
 async def list_agent_template(
     page: int = Query(1, description='页码'),
     page_size: int = Query(999, description='每页数量'),
+    agent_name: str = Query('', description='智能体模板名称，用于搜索'),
 ):
     q = Q()
+    if agent_name:
+        q &= Q(agent_name_contains=agent_name)
     total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
@@ -137,11 +142,15 @@ async def list_agent_template(
 async def create_agent_template(
     obj_in: AgentTemplateCreate,
 ):
-    user_id = CTX_USER_ID.get()
-    obj = await AgentCreate.filter(agent_name=obj_in.agent_name).first()
+    obj = await AgentTemplate.filter(agent_name=obj_in.agent_name).first()
     if obj:
         return Fail(code=400, msg=f'{obj_in.agent_name}已存在，请重新命名')
-    obj_in.user_id = user_id
+    # 先给远端发请求
+    res = await xz_service.create_agent_template(obj_in)
+    if not res or not res['data']:
+        logger.error(f'创建智能体模板失败: {res}')
+        return Fail(code=400, msg='XZ-API创建失败')
+    obj_in.agent_id = res['data'].get('id')
     obj = await agent_template_controller.create(obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -154,9 +163,28 @@ async def update_agent_template(
     obj = await agent_template_controller.get(id=obj_in.id)
     if not obj:
         return Fail(code=400, msg='AgentTemplate not found')
+    # 先更新远端的
+    res = await xz_service.update_agent_template(obj.agent_id, obj_in)
+    if not res or not res['success']:
+        return Fail(code=400, msg='XZ-API更新失败')
     obj = await agent_template_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
+
+
+@router.delete('/template/delete', summary='删除智能体模板')
+async def delete_agent_template(
+    id: int = Query(..., description='ID'),
+):
+    obj = await agent_template_controller.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='AgentTemplate not found')
+    # 先删除远端的
+    res = await xz_service.delete_agent_template(obj.agent_id)
+    if not res or not res['success']:
+        return Fail(code=400, msg='XZ-API删除失败')
+    await agent_template_controller.remove(id=id)
+    return Success(msg='Deleted Successfully')
 
 
 # 音色克隆相关

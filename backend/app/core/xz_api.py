@@ -170,7 +170,7 @@ class XZService:
         return results
 
     async def list_agent_template(self):
-        """获取所有智能体模板列表：目前只有一个"""
+        """获取所有智能体模板列表"""
         url = f'{self.base_url}/api/developers/agent-templates/list'
         params = {'page': 1, 'pageSize': 100}
         data = await self._make_request('GET', url, params=params)
@@ -187,18 +187,15 @@ class XZService:
             'character': obj_in.character,
             'assistant_name': obj_in.assistant_name,
             'user_name': obj_in.user_name,
-            'tts_voices': [f'{obj_in.language}:{obj_in.default_tts_voice}'],
+            'tts_voices': [f'{obj_in.language}:{obj_in.tts_voice}'],
             'llm_model': obj_in.llm_model,
             'languages': [obj_in.language],
             'tts_speech_speed': obj_in.tts_speech_speed,
             'asr_speed': obj_in.asr_speed,
             'tts_pitch': obj_in.tts_pitch,
-            'default_tts_voice': f'{obj_in.language}:{obj_in.default_tts_voice}',
+            'default_tts_voice': f'{obj_in.language}:{obj_in.tts_voice}',
         }
-        data = await self._make_request('POST', url, json=data)
-        if not data:
-            return None
-        return True
+        return await self._make_request('POST', url, json=data)
 
     async def update_agent_template(self, id, obj_in):
         """更新智能体模板"""
@@ -210,27 +207,20 @@ class XZService:
             'character': obj_in.character,
             'assistant_name': obj_in.assistant_name,
             'user_name': obj_in.user_name,
-            'tts_voices': [f'{obj_in.language}:{obj_in.default_tts_voice}'],
+            'tts_voices': [f'{obj_in.language}:{obj_in.tts_voice}'],
             'llm_model': obj_in.llm_model,
             'languages': [obj_in.language],
             'tts_speech_speed': obj_in.tts_speech_speed,
             'asr_speed': obj_in.asr_speed,
             'tts_pitch': obj_in.tts_pitch,
-            'default_tts_voice': f'{obj_in.language}:{obj_in.default_tts_voice}',
-            'tts_voice_name': obj_in.tts_voice_name,
+            'default_tts_voice': f'{obj_in.language}:{obj_in.tts_voice}',
         }
-        data = await self._make_request('PUT', url, json=data)
-        if not data:
-            return None
-        return True
+        return await self._make_request('PUT', url, json=data)
 
     async def delete_agent_template(self, id):
         """删除智能体模板"""
         url = f'{self.base_url}/api/developers/agent-templates/{id}'
-        data = await self._make_request('DELETE', url)
-        if not data:
-            return None
-        return True
+        return await self._make_request('DELETE', url)
 
     async def bind_device(self, agentId, deviceCode):
         """绑定设备"""

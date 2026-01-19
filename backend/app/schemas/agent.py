@@ -6,23 +6,21 @@ from pydantic import BaseModel, Field
 
 
 class AgentTemplateCreate(BaseModel):
-    agent_id: str = Field(description='智能体模板ID')
     agent_name: str = Field(description='智能体模板名称')
-    tts_voices: Optional[list[str]] = Field(default=None, description='TTS语音列表')
-    default_tts_voice: Optional[str] = Field(default=None, description='默认TTS语音')
+    agent_id: Optional[str] = Field(default=None, description='智能体模板ID')
     llm_model: Optional[str] = Field(default=None, description='LLM模型')
+    tts_voice: Optional[str] = Field(default=None, description='TTS语音')
     assistant_name: Optional[str] = Field(default=None, description='助手名称')
     user_name: Optional[str] = Field(default=None, description='用户名称')
     character: Optional[str] = Field(default=None, description='系统提示词')
+    language: Optional[str] = Field(default=None, description='语言')
     tts_speech_speed: Optional[str] = Field(default=None, description='TTS语速')
     asr_speed: Optional[str] = Field(default=None, description='ASR语速')
     tts_pitch: Optional[int] = Field(default=None, description='TTS音调')
-    tts_voice_name: Optional[str] = Field(default=None, description='TTS语音名称')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
     id: int = Field(description='ID')
-    agent_id: Optional[str] = Field(default=None, description='智能体模板ID')
     agent_name: Optional[str] = Field(default=None, description='智能体名称')
 
 

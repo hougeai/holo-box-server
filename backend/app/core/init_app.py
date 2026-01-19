@@ -372,16 +372,15 @@ async def init_agent_template():
                 user_id='1',
                 agent_id=agent.get('id'),
                 agent_name=agent.get('agent_name'),
-                tts_voices=agent.get('tts_voices'),
-                default_tts_voice=agent.get('default_tts_voice'),
                 llm_model=agent.get('llm_model'),
+                tts_voice=agent.get('default_tts_voice').split(':')[1],
+                language=agent.get('default_tts_voice').split(':')[0],
                 assistant_name=agent.get('assistant_name'),
                 user_name=agent.get('user_name'),
                 character=agent.get('character'),
                 tts_speech_speed=agent.get('tts_speech_speed'),
                 asr_speed=agent.get('asr_speed'),
                 tts_pitch=agent.get('tts_pitch'),
-                tts_voice_name=agent.get('tts_voice_name'),
             )
             for agent in agents
         ]

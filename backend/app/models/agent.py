@@ -2,20 +2,19 @@ from tortoise import fields
 from .base import BaseModel, TimestampMixin
 
 
-# agent模板
+# agent模板：和agent对齐，改造xiaozhi-api返回结果进行适配
 class AgentTemplate(BaseModel, TimestampMixin):
     agent_id = fields.CharField(max_length=12, null=True, index=True, description='智能体模板ID')
     agent_name = fields.CharField(max_length=64, null=True, index=True, description='智能体模板名称')
-    tts_voices = fields.JSONField(null=True, description='TTS语音列表')
-    default_tts_voice = fields.CharField(max_length=64, null=True, index=True, description='默认TTS语音')
     llm_model = fields.CharField(max_length=64, null=True, index=True, description='LLM模型')
+    tts_voice = fields.CharField(max_length=64, null=True, index=True, description='TTS语音')
     assistant_name = fields.CharField(max_length=64, null=True, index=True, description='助手名称')
     user_name = fields.CharField(max_length=64, null=True, index=True, description='用户名称')
     character = fields.TextField(null=True, description='系统提示词')
+    language = fields.CharField(max_length=64, null=True, index=True, description='语言')
     tts_speech_speed = fields.CharField(max_length=64, default='normal', null=True, description='TTS语速')
     asr_speed = fields.CharField(max_length=64, default='normal', null=True, description='ASR语速')
     tts_pitch = fields.IntField(default=0, null=True, description='TTS音调')
-    tts_voice_name = fields.CharField(max_length=64, null=True, index=True, description='TTS语音名称')
 
 
 # agent表
