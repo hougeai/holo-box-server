@@ -31,7 +31,7 @@ class AgentTemplateUpdate(AgentTemplateCreate):
 
 class AgentCreate(BaseModel):
     user_id: str = Field(description='用户ID')
-    agent_id: str = Field(description='智能体ID')
+    agent_id: Optional[str] = Field(default=None, description='智能体ID')
     agent_name: Optional[str] = Field(default=None, description='智能体名称')
     llm_model: Optional[str] = Field(default=None, description='LLM模型')
     tts_voice: Optional[str] = Field(default=None, description='TTS语音')
@@ -46,15 +46,15 @@ class AgentCreate(BaseModel):
     asr_speed: Optional[str] = Field(default=None, description='ASR语速')
     tts_pitch: Optional[int] = Field(default=None, description='TTS音调')
     agent_template_id: Optional[int] = Field(default=None, description='模板ID')
-    mcp_endpoints: Optional[dict] = Field(default=None, description='MCP端点')
+    mcp_endpoints: Optional[list] = Field(default=None, description='MCP端点')
     device_count: Optional[int] = Field(default=0, description='设备数量')
+    source: Optional[str] = Field(default=None, description='创建来源')
     avatar: Optional[str] = Field(default=None, description='头像')
 
 
 class AgentUpdate(AgentCreate):
     id: int = Field(description='ID')
     user_id: Optional[str] = Field(default=None, description='用户ID')
-    agent_id: Optional[str] = Field(default=None, description='智能体ID')
 
 
 # ========== LLM ==========

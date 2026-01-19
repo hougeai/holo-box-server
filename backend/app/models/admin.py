@@ -48,7 +48,7 @@ class Role(BaseModel, TimestampMixin):
     desc = fields.CharField(max_length=500, null=True, description='角色描述')
     # 配额限制字段
     max_agents = fields.IntField(default=1, description='最大智能体创建数量')
-    # 会员价格字段：max_digits 10位数字，小数点后保留2位；Decimal 字段是处理金融数据的标准做法，避免舍入误差
+    # 形象价格字段：max_digits 10位数字，小数点后保留2位；Decimal 字段是处理金融数据的标准做法，避免舍入误差
     price_figure = fields.DecimalField(max_digits=10, decimal_places=2, default=0, description='创建形象价格')
 
     class Meta:

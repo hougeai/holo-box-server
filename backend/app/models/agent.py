@@ -38,6 +38,7 @@ class Agent(BaseModel, TimestampMixin):
     agent_template_id = fields.IntField(null=True, description='模板ID')
     mcp_endpoints = fields.JSONField(null=True, description='MCP端点')
     device_count = fields.IntField(default=0, null=True, description='设备数量')
+    source = fields.CharField(max_length=64, null=True, index=True, description='创建来源')
     avatar = fields.TextField(null=True, description='头像')
 
 

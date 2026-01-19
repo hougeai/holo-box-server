@@ -7,10 +7,10 @@ from core.log import logger
 from core.xz_api import xz_service
 from core.minio import oss
 from core.config import settings
-from controllers import agent_controller, agent_template_controller
+from controllers import agent_controller, agent_template_controller, voice_controller
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import AgentCreate, AgentUpdate, AgentTemplateCreate, AgentTemplateUpdate
-from models.agent import Agent, Voice
+from models.agent import Agent, Voice, LLM
 
 router = APIRouter()
 
@@ -20,12 +20,15 @@ async def list_agent(
     page: int = Query(1, description='页码'),
     page_size: int = Query(999, description='每页数量'),
     user_id: str = Query('', description='用户ID，用于搜索'),
+    agent_id: str = Query('', description='智能体ID，用于搜索'),
 ):
     q = Q()
     if user_id:
         q &= Q(user_id=user_id)
+    if agent_id:
+        q &= Q(agent_id=agent_id)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
-    total, objs = await agent_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    total, objs = await agent_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
@@ -35,20 +38,27 @@ async def create_agent(
     obj_in: AgentCreate,
 ):
     user_id = CTX_USER_ID.get()
-    obj = await Agent.filter(agent_name=obj_in.agent_name).first()
+    obj = await Agent.filter(user_id=user_id, agent_name=obj_in.agent_name).first()
     if obj:
         return Fail(code=400, msg=f'{obj_in.agent_name}已存在，请重新命名')
-    res = await xz_service.create_agent(obj_in.agent_name)
+    res = await xz_service.create_agent(obj_in)
     if not res or not res['data']:
         logger.error(f'创建智能体失败: {res}')
-        return Fail(code=400, msg='创建失败')
-    obj_in.agent_id = res['data']  # data里就是id
+        return Fail(code=400, msg='XZ-API创建失败')
+    obj_in.agent_id = res['data'].get('id')
     obj_in.user_id = user_id
     # 查询智能体详情
-    res = await xz_service.list_agent()
+    res = await xz_service.get_agent(obj_in.agent_id)
     if not res or not res['data']:
-        return Fail(code=400, msg='创建失败')
-    return Success(data=[])
+        logger.error(f'获取智能体详情失败: {res}')
+        return Fail(code=400, msg='XZ-API获取智能体详情失败')
+    agent = res['data'].get('agent')
+    obj_in.mcp_endpoints = agent.get('mcp_endpoints')
+    obj_in.source = agent.get('source')
+    # 保存到数据库
+    obj = await agent_controller.create(obj_in=obj_in)
+    data = await obj.to_dict()
+    return Success(data=data)
 
 
 @router.post('/update', summary='更新智能体')
@@ -60,8 +70,8 @@ async def update_agent(
         return Fail(code=400, msg='Agent not found')
     # 先更新远端的
     res = await xz_service.update_agent(obj.agent_id, obj_in)
-    if not res or res['code'] != 0:
-        return Fail(code=400, msg='远端更新失败')
+    if not res or not res['success']:
+        return Fail(code=400, msg='XZ-API更新失败')
     obj = await agent_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -78,19 +88,35 @@ async def delete_agent(
             return Fail(code=400, msg='请先解绑当前智能体下的所有设备')
         # 先删除远端的
         res = await xz_service.delete_agent(obj.agent_id)
-        if not res or res['code'] != 0:
-            return Fail(code=400, msg='远端删除失败')
+        if not res or not res['success']:
+            return Fail(code=400, msg='XZ-API删除失败')
         await agent_controller.remove(id=id)
         return Success(msg='Deleted Successfully')
     else:
-        return Success(msg='Agent not found')
+        return Fail(code=400, msg='Agent not found')
 
 
 @router.get('/voice/list', summary='TTS voice 列表')
-async def list_voice():
-    user_id = CTX_USER_ID.get()
-    q = Q(public=True) | Q(user_id=user_id)
-    objs = await Voice.filter(q).all()
+async def list_voice(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(999, description='每页数量'),
+    user_id: str = Query('', description='用户ID，用于搜索'),
+    voice_id: str = Query('', description='音色ID，用于搜索'),
+):
+    q = Q()
+    if user_id:
+        q &= Q(user_id=user_id)
+    if voice_id:
+        q &= Q(voice_id=voice_id)
+    # 当前页码 每页显示数量；返回的是总数和当前页数据列表
+    total, objs = await voice_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    data = [await obj.to_dict() for obj in objs]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+@router.get('/llm/list', summary='LLM 模型列表')
+async def list_llm():
+    objs = await LLM.all()
     data = [await obj.to_dict(exclude_fields=['update_at']) for obj in objs]
     return Success(data=data)
 

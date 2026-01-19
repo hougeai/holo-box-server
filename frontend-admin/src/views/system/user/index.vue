@@ -57,13 +57,6 @@ onMounted(() => {
 
 const columns = [
   {
-    title: 'ID',
-    key: 'id',
-    width: 30,
-    align: 'center',
-    ellipsis: { tooltip: true },
-  },
-  {
     title: '名称',
     key: 'user_name',
     width: 30,
@@ -78,8 +71,8 @@ const columns = [
     ellipsis: { tooltip: true },
   },
   {
-    title: '微信ID',
-    key: 'wxid',
+    title: '微信openid',
+    key: 'openid',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
@@ -94,13 +87,6 @@ const columns = [
   {
     title: '手机',
     key: 'phone',
-    width: 30,
-    align: 'center',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: '知识库ID',
-    key: 'kb_id',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
@@ -137,22 +123,6 @@ const columns = [
     },
   },
   {
-    title: '上次登录时间',
-    key: 'last_login',
-    align: 'center',
-    width: 70,
-    ellipsis: { tooltip: true },
-    render(row) {
-      return h(
-        NButton,
-        { size: 'small', type: 'text', ghost: true },
-        {
-          default: () => (row.last_login !== null ? formatDateTime(row.last_login) : null),
-        },
-      )
-    },
-  },
-  {
     title: '禁用',
     key: 'is_active',
     width: 40,
@@ -172,7 +142,7 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    width: 100,
+    width: 60,
     align: 'center',
     fixed: 'right',
     render(row) {
@@ -220,41 +190,6 @@ const columns = [
             default: () => h('div', {}, '确定删除该用户吗?'),
           },
         ),
-        !row.is_superuser &&
-          h(
-            NPopconfirm,
-            {
-              onPositiveClick: async () => {
-                try {
-                  await api.resetPassword({ user_id: row.id })
-                  $message.success('密码已成功重置')
-                  await $table.value?.handleSearch()
-                } catch (error) {
-                  $message.error('重置密码失败: ' + error.message)
-                }
-              },
-              onNegativeClick: () => {},
-            },
-            {
-              trigger: () =>
-                withDirectives(
-                  h(
-                    NButton,
-                    {
-                      size: 'small',
-                      type: 'warning',
-                      style: 'margin-right: 8px;',
-                    },
-                    {
-                      default: () => '重置密码',
-                      icon: renderIcon('material-symbols:lock-reset', { size: 16 }),
-                    },
-                  ),
-                  [[vPermission, 'post/api/v1/user/reset_password']],
-                ),
-              default: () => h('div', {}, '确定重置用户密码吗?'),
-            },
-          ),
       ]
     },
   },
@@ -391,7 +326,7 @@ const validateAddUser = {
             v-model:value="queryItems.user_id"
             clearable
             type="text"
-            placeholder="请输入用户ID"
+            placeholder="请输入用户user_id"
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
@@ -413,12 +348,12 @@ const validateAddUser = {
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
-        <QueryBarItem label="邮箱" :label-width="30">
+        <QueryBarItem label="手机" :label-width="30">
           <NInput
-            v-model:value="queryItems.email"
+            v-model:value="queryItems.phone"
             clearable
             type="text"
-            placeholder="请输入邮箱"
+            placeholder="请输入手机号"
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>

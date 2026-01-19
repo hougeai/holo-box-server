@@ -1,9 +1,11 @@
-from models import Agent, AgentTemplate
+from models import Agent, AgentTemplate, Voice
 from schemas.agent import (
     AgentCreate,
     AgentUpdate,
     AgentTemplateCreate,
     AgentTemplateUpdate,
+    VoiceCreate,
+    VoiceUpdate,
 )
 
 from .crud import CRUDBase
@@ -23,3 +25,11 @@ class AgentController(CRUDBase[Agent, AgentCreate, AgentUpdate]):
 
 
 agent_controller = AgentController()
+
+
+class VoiceController(CRUDBase[Voice, VoiceCreate, VoiceUpdate]):
+    def __init__(self):
+        super().__init__(model=Voice)
+
+
+voice_controller = VoiceController()

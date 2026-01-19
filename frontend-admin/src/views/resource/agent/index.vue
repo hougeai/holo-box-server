@@ -1,24 +1,119 @@
 <script setup>
-import { h, onMounted, ref } from 'vue'
-import { NButton, NInput } from 'naive-ui'
+import { h, onMounted, ref, resolveDirective, withDirectives, computed } from 'vue'
+import { NButton, NInput, NPopconfirm } from 'naive-ui'
 
-import { formatDateTime } from '@/utils'
+import { formatDate, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
+import { useCRUD } from '@/composables'
+import { useUserStore } from '@/store'
 import api from '@/api'
 
 defineOptions({ name: '智能体管理' })
 
 const $table = ref(null) // 只是说明这是一个特殊的实例
 const queryItems = ref({})
+const vPermission = resolveDirective('permission') // 用来解析自定义指令，是app.directive('permission', {})定义的
+const userStore = useUserStore()
+
+const {
+  modalVisible,
+  modalTitle,
+  modalLoading,
+  handleSave,
+  modalForm,
+  modalFormRef,
+  handleEdit,
+  handleAdd,
+  handleDelete,
+} = useCRUD({
+  name: 'Agent',
+  initForm: {
+    user_id: userStore.userId,
+    assistant_name: '盒子',
+    llm_model: 'xz-lite',
+    language: 'zh',
+    tts_speech_speed: 'normal',
+    asr_speed: 'normal',
+    tts_pitch: 0,
+    memory_type: 'SHORT_TERM',
+  },
+  doCreate: api.createAgent,
+  doUpdate: api.updateAgent,
+  doDelete: api.deleteAgent,
+  refresh: () => $table.value?.handleSearch(), // 在CrudTable中定义的
+})
+
+// LLM列表
+const llmList = ref([])
+// Voice列表
+const voiceList = ref([])
+
+// 获取LLM列表
+const fetchLlmList = async () => {
+  try {
+    const res = await api.getLlmList()
+    if (res.data) {
+      llmList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取LLM列表失败:', error)
+  }
+}
+
+// 获取Voice列表
+const fetchVoiceList = async () => {
+  try {
+    const res = await api.getVoiceList()
+    if (res.data) {
+      voiceList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取Voice列表失败:', error)
+  }
+}
+
+// 根据选中的语言过滤音色
+const filteredVoices = computed(() => {
+  if (!modalForm.value.language) {
+    return voiceList.value.map((voice) => ({
+      label: `${voice.voice_name || voice.voice_id} (${languageMap[voice.language] || voice.language})`,
+      value: voice.voice_id,
+    }))
+  }
+  return voiceList.value
+    .filter((voice) => voice.language === modalForm.value.language)
+    .map((voice) => ({
+      label: voice.voice_name || voice.voice_id,
+      value: voice.voice_id,
+    }))
+})
+
+// 语言选项
+const languageOptions = computed(() => {
+  return Object.entries(languageMap).map(([value, label]) => ({ label, value }))
+})
+
+// 语速选项
+const asrSpeedOptions = computed(() => {
+  return Object.entries(asrSpeedMap).map(([value, label]) => ({ label, value }))
+})
+const ttsSpeedOptions = computed(() => {
+  return Object.entries(ttsSpeedMap).map(([value, label]) => ({ label, value }))
+})
+
+// 记忆类型选项
+const memoryTypeOptions = [{ label: '短期记忆', value: 'SHORT_TERM' }]
 
 onMounted(() => {
   $table.value?.handleSearch()
+  fetchLlmList()
+  fetchVoiceList()
 })
 
 const columns = [
   {
     title: 'ID',
     key: 'id',
-    width: 30,
+    width: 20,
     align: 'center',
     ellipsis: { tooltip: true },
   },
@@ -38,7 +133,35 @@ const columns = [
   },
   {
     title: '智能体名称',
-    key: 'name',
+    key: 'agent_name',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: 'LLM',
+    key: 'llm_model',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '音色',
+    key: 'tts_voice',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '设备绑定量',
+    key: 'device_count',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '来源',
+    key: 'source',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
@@ -46,7 +169,7 @@ const columns = [
   {
     title: '创建时间',
     key: 'create_at',
-    width: 60,
+    width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
     render(row) {
@@ -54,9 +177,62 @@ const columns = [
         NButton,
         { size: 'small', type: 'text', ghost: true },
         {
-          default: () => (row.create_at !== null ? formatDateTime(row.create_at) : null),
+          default: () => (row.create_at !== null ? formatDate(row.create_at) : null),
         },
       )
+    },
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 60,
+    align: 'center',
+    fixed: 'right',
+    render(row) {
+      return [
+        withDirectives(
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'primary',
+              style: 'margin-right: 8px;',
+              onClick: () => {
+                handleEdit(row)
+              },
+            },
+            {
+              icon: renderIcon('material-symbols:edit', { size: 16 }),
+            },
+          ),
+          [[vPermission, 'post/api/v1/agent/update']],
+        ),
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => handleDelete({ id: row.id }),
+            onNegativeClick: () => {},
+          },
+          {
+            trigger: () =>
+              withDirectives(
+                h(
+                  NButton,
+                  {
+                    size: 'small',
+                    type: 'error',
+                    style: 'margin-right: 8px;',
+                  },
+                  {
+                    icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
+                  },
+                ),
+                [[vPermission, 'delete/api/v1/agent/delete']],
+              ),
+            default: () => h('div', {}, '确定删除吗?'),
+          },
+        ),
+      ]
     },
   },
 ]
@@ -64,6 +240,11 @@ const columns = [
 
 <template>
   <CommonPage show-footer title="智能体列表">
+    <template #action>
+      <NButton v-permission="'post/api/v1/agent/create'" type="primary" @click="handleAdd">
+        <TheIcon icon="material-symbols:add" :size="18" class="mr-5" />新增智能体
+      </NButton>
+    </template>
     <!-- 表格 -->
     <CrudTable
       ref="$table"
@@ -86,11 +267,147 @@ const columns = [
             v-model:value="queryItems.agent_id"
             clearable
             type="text"
-            placeholder="请输入设备ID"
+            placeholder="请输入智能体ID"
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
       </template>
     </CrudTable>
+    <CrudModal
+      v-model:visible="modalVisible"
+      :title="modalTitle"
+      :loading="modalLoading"
+      @save="handleSave"
+    >
+      <NForm
+        ref="modalFormRef"
+        label-placement="left"
+        label-align="left"
+        :label-width="110"
+        :model="modalForm"
+        :disabled="modalAction === 'view'"
+      >
+        <NFormItem
+          label="智能体名称"
+          path="agent_name"
+          :rule="{
+            required: true,
+            message: '请输入智能体名称',
+            trigger: ['input', 'blur'],
+          }"
+        >
+          <NInput v-model:value="modalForm.agent_name" placeholder="请输入智能体名称" />
+        </NFormItem>
+        <NFormItem
+          label="助手名称"
+          path="assistant_name"
+          :rule="{
+            required: true,
+            message: '请输入智能体名称',
+            trigger: ['input', 'blur'],
+          }"
+        >
+          <NInput v-model:value="modalForm.assistant_name" placeholder="请输入助手名称" />
+        </NFormItem>
+
+        <NFormItem
+          label="角色提示词"
+          path="character"
+          :rule="{
+            required: true,
+            message: '请输入角色提示词',
+            trigger: ['input', 'blur'],
+          }"
+        >
+          <NInput
+            v-model:value="modalForm.character"
+            type="textarea"
+            :rows="4"
+            clearable
+            placeholder="请输入角色提示词"
+          />
+        </NFormItem>
+        <NFormItem
+          label="语言模型"
+          path="llm_model"
+          :rule="{
+            required: true,
+            message: '请选择语言模型',
+            trigger: ['change', 'blur'],
+          }"
+        >
+          <NSelect
+            v-model:value="modalForm.llm_model"
+            :options="llmList.map((item) => ({ label: item.description, value: item.name }))"
+            placeholder="请选择语言模型"
+            clearable
+          />
+        </NFormItem>
+        <NFormItem
+          label="对话语言"
+          path="language"
+          :rule="{
+            required: true,
+            message: '请选择对话语言',
+            trigger: ['change', 'blur'],
+          }"
+        >
+          <NSelect
+            v-model:value="modalForm.language"
+            :options="languageOptions"
+            placeholder="请选择对话语言"
+            clearable
+          />
+        </NFormItem>
+        <NFormItem
+          label="角色音色"
+          path="tts_voice"
+          :rule="{
+            required: true,
+            message: '请选择角色音色',
+            trigger: ['change', 'blur'],
+          }"
+        >
+          <NSelect
+            v-model:value="modalForm.tts_voice"
+            :options="filteredVoices"
+            placeholder="请先选择对话语言，再选择角色音色"
+            clearable
+          />
+        </NFormItem>
+        <NFormItem label="角色语速" path="tts_speech_speed">
+          <NSelect
+            v-model:value="modalForm.tts_speech_speed"
+            :options="ttsSpeedOptions"
+            placeholder="请选择角色语速"
+            clearable
+          />
+        </NFormItem>
+        <NFormItem label="角色音调" path="tts_pitch">
+          <NInputNumber
+            v-model:value="modalForm.tts_pitch"
+            :min="-3"
+            :max="3"
+            placeholder="请输入角色音调(-3到3)"
+            clearable
+          />
+        </NFormItem>
+        <NFormItem label="语音识别速度" path="asr_speed">
+          <NSelect
+            v-model:value="modalForm.asr_speed"
+            :options="asrSpeedOptions"
+            placeholder="请选择语音识别速度"
+            clearable
+          />
+        </NFormItem>
+        <NFormItem label="记忆类型" path="memory_type">
+          <NSelect
+            v-model:value="modalForm.memory_type"
+            :options="memoryTypeOptions"
+            placeholder="请选择记忆类型"
+          />
+        </NFormItem>
+      </NForm>
+    </CrudModal>
   </CommonPage>
 </template>

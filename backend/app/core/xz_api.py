@@ -75,65 +75,69 @@ class XZService:
     async def get_agent(self, id):
         """获取智能体详情"""
         url = f'{self.base_url}/api/agents/{id}'
-        data = await self._make_request('GET', url)
-        if not data:
-            return None
-        agent = data.get('data', {}).get('agent', {})
-        return agent
+        return await self._make_request('GET', url)
 
     async def create_agent(self, obj_in):
         """创建智能体"""
-        data = {
-            'agent_name': obj_in.agent_name,
-            'assistant_name': obj_in.assistant_name,
-            'llm_model': obj_in.llm_model,
-            'tts_voice': obj_in.tts_voice,
-            'tts_speech_speed': obj_in.tts_speech_speed,  # 角色语速 slow normal fast
-            'tts_pitch': obj_in.tts_pitch,  # 音高
-            'asr_speed': obj_in.asr_speed,  # 语音识别速度 slow normal fast
-            'language': obj_in.language,
-            'character': obj_in.character,
-            'memory': obj_in.memory,
-            'memory_type': obj_in.memory_type,  # "OFF"、"SHORT_TERM"
-            'mcp_endpoints': obj_in.mcp_endpoints,  # 查看 官方MCP 工具接口
-        }
+        data = {}
+        if obj_in.agent_name:
+            data['agent_name'] = obj_in.agent_name
+        if obj_in.assistant_name:
+            data['assistant_name'] = obj_in.assistant_name
+        if obj_in.llm_model:
+            data['llm_model'] = obj_in.llm_model
+        if obj_in.tts_voice:
+            data['tts_voice'] = obj_in.tts_voice
+        if obj_in.tts_speech_speed:
+            data['tts_speech_speed'] = obj_in.tts_speech_speed  # 角色语速 slow normal fast
+        if obj_in.tts_pitch is not None:
+            data['tts_pitch'] = obj_in.tts_pitch  # 音高
+        if obj_in.asr_speed:
+            data['asr_speed'] = obj_in.asr_speed  # 语音识别速度 slow normal fast
+        if obj_in.language:
+            data['language'] = obj_in.language
+        if obj_in.character:
+            data['character'] = obj_in.character
+        if obj_in.memory_type:
+            data['memory_type'] = obj_in.memory_type  # "OFF"、"SHORT_TERM"
         url = f'{self.base_url}/api/agents'
-        data = await self._make_request('POST', url, json=data)
-        if not data:
-            return None
-        agent = data.get('data', {})
-        return agent
+        return await self._make_request('POST', url, json=data)
 
     async def update_agent(self, id, obj_in):
         """更新智能体"""
-        data = {
-            'agent_name': obj_in.agent_name,
-            'assistant_name': obj_in.assistant_name,
-            'llm_model': obj_in.llm_model,
-            'tts_voice': obj_in.tts_voice,
-            'tts_speech_speed': obj_in.tts_speech_speed,  # 角色语速 slow normal fast
-            'tts_pitch': obj_in.tts_pitch,  # 音高
-            'asr_speed': obj_in.asr_speed,  # 语音识别速度 slow normal fast
-            'language': obj_in.language,
-            'character': obj_in.character,
-            'memory': obj_in.memory,
-            'memory_type': obj_in.memory_type,  # "OFF"、"SHORT_TERM"
-            'mcp_endpoints': obj_in.mcp_endpoints,  # 查看 官方MCP 工具接口
-        }
+        data = {}
+        if obj_in.agent_name:
+            data['agent_name'] = obj_in.agent_name
+        if obj_in.assistant_name:
+            data['assistant_name'] = obj_in.assistant_name
+        if obj_in.llm_model:
+            data['llm_model'] = obj_in.llm_model
+        if obj_in.tts_voice:
+            data['tts_voice'] = obj_in.tts_voice
+        if obj_in.tts_speech_speed:
+            data['tts_speech_speed'] = obj_in.tts_speech_speed  # 角色语速 slow normal fast
+        if obj_in.tts_pitch is not None:
+            data['tts_pitch'] = obj_in.tts_pitch  # 音高
+        if obj_in.asr_speed:
+            data['asr_speed'] = obj_in.asr_speed  # 语音识别速度 slow normal fast
+        if obj_in.language:
+            data['language'] = obj_in.language
+        if obj_in.character:
+            data['character'] = obj_in.character
+        if obj_in.memory:
+            data['memory'] = obj_in.memory
+        if obj_in.memory_type:
+            data['memory_type'] = obj_in.memory_type  # "OFF"、"SHORT_TERM"
+        if obj_in.mcp_endpoints:
+            data['mcp_endpoints'] = obj_in.mcp_endpoints  # 查看 官方MCP 工具接口
         url = f'{self.base_url}/api/agents/{id}/config'
-        data = await self._make_request('POST', url, json=data)
-        if not data:
-            return None
-        return True
+        return await self._make_request('POST', url, json=data)
 
     async def delete_agent(self, id):
         """删除智能体"""
         url = f'{self.base_url}/api/agents/delete'
         data = {'id': id}
-        data = await self._make_request('POST', url, json=data)
-        if not data:
-            return None
-        return True
+        return await self._make_request('POST', url, json=data)
 
     # async def get_mcp_list(self):
     #     """获取MCP列表"""

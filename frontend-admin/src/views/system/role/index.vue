@@ -62,32 +62,6 @@ const apiOption = ref([])
 const api_ids = ref([])
 const apiTree = ref([])
 
-function buildApiTree(data) {
-  const processedData = []
-  const groupedData = {}
-
-  data.forEach((item) => {
-    const tags = item['tags']
-    const pathParts = item['path'].split('/')
-    const path = pathParts.slice(0, -1).join('/')
-    const summary = tags.charAt(0).toUpperCase() + tags.slice(1)
-    const unique_id = item['method'].toLowerCase() + item['path']
-    if (!(path in groupedData)) {
-      groupedData[path] = { unique_id: path, path: path, summary: summary, children: [] }
-    }
-
-    groupedData[path].children.push({
-      id: item['id'],
-      path: item['path'],
-      method: item['method'],
-      summary: item['summary'],
-      unique_id: unique_id,
-    })
-  })
-  processedData.push(...Object.values(groupedData))
-  return processedData
-}
-
 onMounted(() => {
   $table.value?.handleSearch()
 })
@@ -131,19 +105,7 @@ const columns = [
     width: 40,
     align: 'center',
     render(row) {
-      return h('div', [
-        h('div', `设备: ${row.max_devices}`),
-        h('div', `闹钟: ${row.max_alarms}`),
-        h('div', `播放: ${row.max_dailyplay}/日`),
-        h('div', `歌单: ${row.max_playlist}`),
-        h('div', `上传: ${row.max_upload_songs}`),
-        h('div', `API: ${row.max_apikeys}`),
-        h('div', `文件: ${row.kb_file_quota}`),
-        h('div', `向量: ${row.kb_storage_quota}`),
-        h('div', `Dify: ${row.kb_dify_limit}`),
-        h('div', `MCP服务: ${row.max_mcp}`),
-        h('div', `MCP绑定: ${row.max_mcp_bind}`),
-      ])
+      return h('div', [h('div', `智能体创建: ${row.max_agents}`)])
     },
   },
   {
@@ -152,10 +114,7 @@ const columns = [
     width: 40,
     align: 'center',
     render(row) {
-      return h('div', [
-        h('div', `月付: ¥${row.price_monthly}`),
-        h('div', `年付: ¥${row.price_yearly}`),
-      ])
+      return h('div', [h('div', `形象创建: ¥${row.price_figure}`)])
     },
   },
   {
@@ -209,44 +168,6 @@ const columns = [
               ),
             default: () => h('div', {}, '确定删除该角色吗?'),
           },
-        ),
-        withDirectives(
-          h(
-            NButton,
-            {
-              size: 'small',
-              type: 'primary',
-              onClick: async () => {
-                try {
-                  // 使用 Promise.all 来并行发送所有请求，要么全部成功，要么全部失败（如果其中一个失败，整个 Promise.all 会 reject）
-                  const [menusResponse, apisResponse, roleAuthorizedResponse] = await Promise.all([
-                    api.getMenus({ page: 1, page_size: 9999 }),
-                    api.getApis({ page: 1, page_size: 9999 }),
-                    api.getRoleAuthorized({ id: row.id }),
-                  ])
-
-                  // 处理每个请求的响应
-                  menuOption.value = menusResponse.data
-                  apiOption.value = buildApiTree(apisResponse.data)
-                  menu_ids.value = roleAuthorizedResponse.data.menus.map((v) => v.id)
-                  api_ids.value = roleAuthorizedResponse.data.apis.map(
-                    (v) => v.method.toLowerCase() + v.path,
-                  )
-
-                  active.value = true
-                  role_id.value = row.id
-                } catch (error) {
-                  // 错误处理
-                  console.error('Error loading data:', error)
-                }
-              },
-            },
-            {
-              default: () => '设置权限',
-              icon: renderIcon('material-symbols:edit-outline', { size: 16 }),
-            },
-          ),
-          [[vPermission, 'get/api/v1/role/authorized']],
         ),
       ]
     },
@@ -339,67 +260,16 @@ async function updateRoleAuthorized() {
           <NInput v-model:value="modalForm.desc" placeholder="请输入角色描述" />
         </NFormItem>
         <!-- 配额设置 -->
-        <NFormItem label="最大设备数" path="max_devices">
+        <NFormItem label="智能体创建数量" path="max_devices">
           <NInputNumber
             v-model:value="modalForm.max_devices"
-            placeholder="请输入最大设备绑定数量"
-          />
-        </NFormItem>
-        <NFormItem label="最大闹钟数" path="max_alarms">
-          <NInputNumber v-model:value="modalForm.max_alarms" placeholder="请输入最大闹钟设置数量" />
-        </NFormItem>
-        <NFormItem label="每日播放次数" path="max_dailyplay">
-          <NInputNumber
-            v-model:value="modalForm.max_dailyplay"
-            placeholder="请输入每日音乐播放次数限制"
-          />
-        </NFormItem>
-        <NFormItem label="歌单最大歌曲数" path="max_playlist">
-          <NInputNumber
-            v-model:value="modalForm.max_playlist"
-            placeholder="请输入歌单最大歌曲数量"
-          />
-        </NFormItem>
-        <NFormItem label="最大上传歌曲数" path="max_upload_songs">
-          <NInputNumber
-            v-model:value="modalForm.max_upload_songs"
-            placeholder="请输入最大上传歌曲数量"
-          />
-        </NFormItem>
-        <NFormItem label="最大API密钥数" path="max_apikeys">
-          <NInputNumber v-model:value="modalForm.max_apikeys" placeholder="请输入最大API密钥数量" />
-        </NFormItem>
-        <NFormItem label="文件存储额度" path="kb_file_quota">
-          <NInputNumber v-model:value="modalForm.kb_file_quota" placeholder="请输入文件存储额度" />
-        </NFormItem>
-        <NFormItem label="向量存储额度" path="kb_storage_quota">
-          <NInputNumber
-            v-model:value="modalForm.kb_storage_quota"
-            placeholder="请输入向量存储额度"
-          />
-        </NFormItem>
-        <NFormItem label="Dify知识库" path="kb_dify_limit">
-          <NInputNumber
-            v-model:value="modalForm.kb_dify_limit"
-            placeholder="请输入Dify知识库数量限制"
-          />
-        </NFormItem>
-        <NFormItem label="MCP服务" path="max_mcp">
-          <NInputNumber v-model:value="modalForm.max_mcp" placeholder="请输入MCP服务数量限制" />
-        </NFormItem>
-        <NFormItem label="MCP绑定" path="max_mcp_bind">
-          <NInputNumber
-            v-model:value="modalForm.max_mcp_bind"
-            placeholder="请输入MCP绑定数量限制"
+            placeholder="请输入最大智能体创建数量"
           />
         </NFormItem>
 
         <!-- 价格设置 -->
-        <NFormItem label="月付价格" path="price_monthly">
-          <NInputNumber v-model:value="modalForm.price_monthly" placeholder="请输入月付价格" />
-        </NFormItem>
-        <NFormItem label="年付价格" path="price_yearly">
-          <NInputNumber v-model:value="modalForm.price_yearly" placeholder="请输入年付价格" />
+        <NFormItem label="形象创建价格" path="price_figure">
+          <NInputNumber v-model:value="modalForm.price_figure" placeholder="请输入形象创建价格" />
         </NFormItem>
       </NForm>
     </CrudModal>
