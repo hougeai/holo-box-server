@@ -46,7 +46,8 @@ const {
 const llmList = ref([])
 // Voice列表
 const voiceList = ref([])
-
+// 当前播放的音频 URL
+const currentPlayingAudio = ref(null)
 // 获取LLM列表
 const fetchLlmList = async () => {
   try {
@@ -71,12 +72,53 @@ const fetchVoiceList = async () => {
   }
 }
 
+// 试听音频
+let currentAudioInstance = null
+const handlePlayAudio = (voiceDemo) => {
+  // 如果当前正在播放该音频，则停止播放
+  if (currentPlayingAudio.value === voiceDemo && currentAudioInstance) {
+    currentAudioInstance.pause()
+    currentAudioInstance.currentTime = 0
+    currentPlayingAudio.value = null
+    currentAudioInstance = null
+    return
+  }
+
+  // 停止之前播放的音频
+  if (currentAudioInstance) {
+    currentAudioInstance.pause()
+    currentAudioInstance.currentTime = 0
+  }
+
+  // 播放新音频
+  currentPlayingAudio.value = voiceDemo
+  currentAudioInstance = new Audio(voiceDemo)
+  currentAudioInstance.play().catch((err) => {
+    console.error('播放失败:', err)
+    currentPlayingAudio.value = null
+    currentAudioInstance = null
+  })
+
+  // 监听播放结束事件
+  currentAudioInstance.onended = () => {
+    currentPlayingAudio.value = null
+    currentAudioInstance = null
+  }
+
+  // 监听播放错误事件
+  currentAudioInstance.onerror = () => {
+    currentPlayingAudio.value = null
+    currentAudioInstance = null
+  }
+}
+
 // 根据选中的语言过滤音色
 const filteredVoices = computed(() => {
   if (!modalForm.value.language) {
     return voiceList.value.map((voice) => ({
       label: `${voice.voice_name || voice.voice_id} (${languageMap[voice.language] || voice.language})`,
       value: voice.voice_id,
+      voiceDemo: voice.voice_demo,
     }))
   }
   return voiceList.value
@@ -84,8 +126,45 @@ const filteredVoices = computed(() => {
     .map((voice) => ({
       label: voice.voice_name || voice.voice_id,
       value: voice.voice_id,
+      voiceDemo: voice.voice_demo,
     }))
 })
+
+// 渲染 NSelect 的选项标签
+const renderVoiceLabel = (option) => {
+  const isPlaying = currentPlayingAudio.value === option.voiceDemo
+  return h(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+      },
+    },
+    [
+      h('span', {}, option.label),
+      h(
+        NButton,
+        {
+          size: 'tiny',
+          type: isPlaying ? 'success' : 'info',
+          text: true,
+          onClick: (e) => {
+            e.stopPropagation()
+            handlePlayAudio(option.voiceDemo)
+          },
+        },
+        {
+          icon: isPlaying
+            ? renderIcon('material-symbols:pause-circle', { size: 16 })
+            : renderIcon('material-symbols:play-circle', { size: 16 }),
+        },
+      ),
+    ],
+  )
+}
 
 // 语言选项
 const languageOptions = computed(() => {
@@ -141,6 +220,10 @@ const columns = [
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
+    render(row) {
+      const voice = voiceList.value.find((v) => v.voice_id === row.tts_voice)
+      return h('span', {}, voice ? voice.voice_name || voice.voice_id : row.tts_voice || '-')
+    },
   },
   {
     title: '助手',
@@ -345,6 +428,7 @@ const columns = [
           <NSelect
             v-model:value="modalForm.tts_voice"
             :options="filteredVoices"
+            :render-label="renderVoiceLabel"
             placeholder="请先选择对话语言，再选择角色音色"
             clearable
           />
