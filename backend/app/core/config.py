@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     HZ_KEY: str = os.getenv('HZ_KEY', '')
     SF_KEY: str = os.getenv('SF_KEY', '')
     GLM_KEY: str = os.getenv('GLM_KEY', '')
+    BAILIAN_KEY: str = os.getenv('BAILIAN_KEY', '')
     # 超级管理员配置
     SUPER_ADMIN_NAME: str = os.getenv('SUPER_ADMIN_NAME', '')
     SUPER_ADMIN_EMAIL: str = os.getenv('SUPER_ADMIN_EMAIL', '')

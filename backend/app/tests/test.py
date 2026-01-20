@@ -38,8 +38,17 @@ async def test_wx():
     print(res)
 
 
+async def test_profile():
+    from core.profile_api import bl_service
+
+    res = await bl_service.generate_video(img_url='http://1.95.14.72:9000/holo-box/aigc/2.png')
+    print(res)
+
+
 if __name__ == '__main__':
-    test_wxlogin()
-    # import asyncio
+    # test_wxlogin()
+    import asyncio
+
     # asyncio.run(test_xz())
     # asyncio.run(test_wx())
+    asyncio.run(test_profile())

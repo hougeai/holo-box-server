@@ -42,7 +42,7 @@ class WXService:
         res, msg = await self._make_request('GET', url, params=params)
         if not res:
             return None, msg
-        if res.get('errcode') != 0:
+        if not res.get('openid'):
             logger.error(f'获取openid失败: {res}')
             return None, res.get('errmsg')
         return res, 'success'
