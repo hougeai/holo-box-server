@@ -1,6 +1,4 @@
 import jwt
-import json
-import aiohttp
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request
 from core.config import settings
@@ -9,15 +7,11 @@ from core.dependency import DependAuth
 from core.security import create_token, get_password_hash, verify_password
 from core.verifycode import RedisManager
 from core.log import logger
+from core.wx_api import wx_service
 from controllers import user_controller
 from models.admin import Api, Menu, RoleApi, RoleMenu
 from schemas.base import Fail, Success
-from schemas.login import (
-    CredentialsSchema,
-    JWTPayload,
-    JWTOut,
-    WxLoinRequest,
-)
+from schemas.login import CredentialsSchema, JWTPayload, JWTOut, WxLoginRequest, WxPhoneRequest
 from schemas.admin import UserCreate, UpdatePassword
 
 router = APIRouter()
@@ -184,38 +178,43 @@ async def update_user_password(request: UpdatePassword):
 
 # 小程序用户注册登录
 @router.post('/wx_login', summary='小程序用户注册登录')
-async def wx_login(request: WxLoinRequest):
-    params = {
-        'appid': settings.MP_APPID,
-        'secret': settings.MP_SECRET,
-        'js_code': request.code,
-        'grant_type': 'authorization_code',
-    }
+async def wx_login(request: WxLoginRequest):
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get('https://api.weixin.qq.com/sns/jscode2session', params=params) as response:
-                if response.status != 200:
-                    logger.error(f'请求微信服务器失败: {response.status}')
-                    return Fail(msg=f'请求微信服务器失败: {response.status}')
-                response_text = await response.text()
-                try:
-                    data = json.loads(response_text)
-                    logger.info(f'微信服务器返回: {data}')
-                except json.JSONDecodeError:
-                    logger.error(f'微信服务器返回非JSON格式: {response_text}')
-                    return Fail(msg=f'微信服务器返回非JSON格式: {response_text}')
-                openid = data.get('openid', None)
-                if not openid:
-                    return Fail(msg=f'微信服务器返回错误: {data.get("errmsg")}')
-                # 查库：如果没有则注册
-                user = await user_controller.get_by_openid(openid)
-                if not user:
-                    obj = UserCreate(openid=openid, user_name='微信用户')
-                    user = await user_controller.create_user(obj)
-                access_token = generate_token_response(user, token_only=True)
-                data['user_id'] = user.user_id
-                data['access_token'] = access_token
-                return Success(data=data)
+        data, msg = await wx_service.get_openid(code=request.code)
+        if not data:
+            return Fail(msg=f'微信服务器返回错误: {msg}')
+        # 查库：如果没有则注册
+        openid = data.get('openid', '')
+        if not openid:
+            return Fail(msg='openid不存在')
+        user = await user_controller.get_by_openid(openid)
+        if not user:
+            obj = UserCreate(openid=openid, user_name='微信用户')
+            user = await user_controller.create_user(obj)
+        access_token = generate_token_response(user, token_only=True)
+        data['user_id'] = user.user_id
+        data['access_token'] = access_token
+        return Success(data=data)
     except Exception as e:
-        logger.error(f'请求微信服务器失败: {e}')
-        return Fail(msg=f'请求微信服务器失败: {e}')
+        logger.error(f'请求wx_login失败: {e}')
+        return Fail(msg=f'请求wx_login失败: {e}')
+
+
+# 小程序获取用户手机号
+@router.post('/wx_phone', summary='小程序获取用户手机号')
+async def wx_phone(request: WxPhoneRequest):
+    try:
+        data, msg = await wx_service.get_phone(code=request.code)
+        if not data:
+            return Fail(msg=f'微信服务器返回错误: {msg}')
+        phone = data.get('phone_info', {}).get('phoneNumber')
+        if not phone:
+            return Fail(msg='手机号不存在')
+        user = await user_controller.get_by_user_id(request.user_id)
+        if user:
+            user.phone = phone
+            await user.save()
+        return Success(data={'phone': phone})
+    except Exception as e:
+        logger.error(f'请求wx_phone失败: {e}')
+        return Fail(msg=f'请求wx_phone失败: {e}')

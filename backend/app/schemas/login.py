@@ -20,5 +20,10 @@ class JWTPayload(BaseModel):
 
 
 #  小程序注册登录
-class WxLoinRequest(BaseModel):
+class WxLoginRequest(BaseModel):
     code: str
+
+
+class WxPhoneRequest(BaseModel):
+    code: str
+    user_id: str

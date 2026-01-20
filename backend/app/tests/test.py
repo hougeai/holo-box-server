@@ -13,10 +13,8 @@ headers = {'token': 'dev'}
 
 def test_wxlogin():
     headers = {'token': 'dev'}
-    data = {
-        'code': '0b35RWll2YXO2h4Ti4ll2EGiZT35RWlk',
-    }
-    response = client.post('base/wx_login', json=data, headers=headers)
+    data = {'code': '0b35RWll2YXO2h4Ti4ll2EGiZT35RWlk', 'user_id': '1'}
+    response = client.post('base/wx_phone', json=data, headers=headers)
     print(response.status_code, response.json())
 
 
@@ -33,8 +31,15 @@ async def test_xz():
     print(res)
 
 
-if __name__ == '__main__':
-    # test_wxlogin()
-    import asyncio
+async def test_wx():
+    from core.wx_api import wx_service
 
-    asyncio.run(test_xz())
+    res = await wx_service.get_phone('0b35RWll2YXO2h4Ti4ll2EGiZT35RWlk')
+    print(res)
+
+
+if __name__ == '__main__':
+    test_wxlogin()
+    # import asyncio
+    # asyncio.run(test_xz())
+    # asyncio.run(test_wx())
