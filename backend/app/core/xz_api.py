@@ -27,11 +27,10 @@ class XZService:
                     async with session.request(method, url, headers=self.headers, **kwargs) as response:
                         if response.status == 401:
                             data = await response.json()
-                            if data.get('message') == 'Invalid token':
-                                logger.warning('Token失效，正在重新获取...')
-                                await self.init_headers()
-                                if attempt < max_retries - 1:
-                                    continue  # 重新发起请求
+                            logger.warning('Token失效，正在重新获取...')
+                            await self.init_headers()
+                            if attempt < max_retries - 1:
+                                continue  # 重新发起请求
                         if response.status != 200:
                             logger.error(f'请求失败 [{method} {url}]: {response.status}')
                             return None
