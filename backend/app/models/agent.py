@@ -60,3 +60,11 @@ class Voice(BaseModel, TimestampMixin):
     public = fields.BooleanField(default=False, description='是否公开')
     ref_audio = fields.TextField(null=True, description='参考音频文件')
     status = fields.CharField(max_length=36, null=True, index=True, description='音色状态')
+
+
+# 形象表
+class Profile(BaseModel, TimestampMixin):
+    user_id = fields.CharField(max_length=12, null=True, index=True, description='用户ID')
+    name = fields.CharField(max_length=64, null=True, index=True, description='形象名称')
+    image = fields.TextField(null=True, description='形象图片')
+    vids = fields.JSONField(null=True, description='视频列表')

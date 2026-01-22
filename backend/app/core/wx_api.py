@@ -78,10 +78,19 @@ class WXService:
         res, msg = await self._make_request('POST', url, json=data)
         if not res:
             return None, msg
-        if res.get('errcode') != 0:
+
+        if res.get('errcode') == 0:
+            return res, 'success'
+        else:
+            if res.get('errcode') in [42001, 40001, 40014, 41001]:
+                logger.warning('access_token失效，重新初始化并重试')
+                await self.init_access_token()
+                url = f'{self.base_url}/wxa/business/getuserphonenumber?access_token={self.access_token}'
+                res, msg = await self._make_request('POST', url, json=data)
+                if res and res.get('errcode') == 0:
+                    return res, 'success'
             logger.error(f'获取手机号失败: {res}')
             return None, res.get('errmsg')
-        return res, 'success'
 
 
 wx_service = WXService()
