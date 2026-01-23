@@ -1,7 +1,9 @@
 import aiohttp
 import asyncio
+from models.agent import Profile
 from .config import settings
 from .log import logger
+from .minio import oss
 
 
 img_prompt = """
@@ -53,10 +55,30 @@ class BailianService:
             logger.error(f'请求失败 [{method} {url}]: {e}')
             return None, f'请求百炼失败: {e}'
 
+    async def download_file(self, url, default_content_type):
+        """
+        下载文件
+        :param url: 文件URL
+        :param default_content_type: 默认content_type
+        :return: (文件字节数据, content_type)
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        logger.error(f'下载文件失败: {response.status}')
+                        return None, None
+                    # 从响应头获取实际类型
+                    content_type = response.headers.get('Content-Type', default_content_type)
+                    return await response.read(), content_type
+        except Exception as e:
+            logger.error(f'下载文件失败: {e}')
+            return None, None
+
     async def generate_image(self, img_url):
         """
         生成图片
-        :param img_url: 图片地址
+        :param img_url: 图片地址 or base64
         """
         url = f'{self.base_url}/services/aigc/multimodal-generation/generation'
         data = {
@@ -137,16 +159,12 @@ class BailianService:
             logger.error(f'百炼视频生成超时或失败: {task_id} {task_status}')
             return None, f'百炼视频生成超时或失败: {task_id} {task_status}'
 
-    async def generate_all_emotions(self, img_url):
+    async def submit_all_emotions(self, img_url):
         """
-        一次性生成所有情绪的视频
+        提交生成所有情绪的视频任务
         :param img_url: 图片地址
-        :return: {emotion: {'url': video_url, 'status': 'success'|'failed', 'msg': str}}
+        :return: {emotion: {'task_id': task_id, 'status': 'success'|'failed'}}
         """
-        results = {}
-        max_retries = 40
-
-        # 并发提交所有任务
         submit_tasks = [self.post_generate_video(vid_prompts[e], img_url) for e in vid_prompts.keys()]
         task_list = await asyncio.gather(*submit_tasks)
         # 收集任务ID
@@ -154,10 +172,15 @@ class BailianService:
         for idx, (task_id, task_status) in enumerate(task_list):
             emotion = list(vid_prompts.keys())[idx]
             if task_id:
-                pending[emotion] = {'task_id': task_id, 'retries': 0}
-                logger.info(f'情绪 {emotion} 任务已提交: {task_id}')
-            else:
-                results[emotion] = {'url': None, 'status': 'failed', 'msg': '任务创建失败'}
+                pending[emotion] = {'task_id': task_id, 'status': task_status, 'retries': 0}
+        return pending
+
+    async def poll_all_emotions(self, pending):
+        """
+        后台任务：轮询视频生成状态
+        """
+        results = {}
+        max_retries = 40
         # 轮询直到所有任务完成或超时
         while pending:
             await asyncio.sleep(5)
@@ -168,7 +191,6 @@ class BailianService:
             for (emotion, info), (video_url, task_status) in zip(pending.items(), status_results):
                 info['retries'] += 1
                 logger.info(f'情绪 {emotion}: {info["task_id"]} {task_status} [{info["retries"]}/{max_retries}]')
-
                 if task_status == 'SUCCEEDED':
                     results[emotion] = {'url': video_url, 'status': 'success', 'msg': ''}
                 elif task_status not in ['PENDING', 'RUNNING'] or info['retries'] >= max_retries:
@@ -176,6 +198,34 @@ class BailianService:
             # 移除已完成的任务
             pending = {k: v for k, v in pending.items() if k not in results}
         return results
+
+    async def poll_and_save(self, pending, profile_id):
+        try:
+            results = await self.poll_all_emotions(pending)
+            profile = await Profile.get(id=profile_id)
+
+            # 下载视频并上传到 OSS
+            for emotion, info in results.items():
+                if info['status'] == 'success' and info['url']:
+                    video_key = f'profile/vid/{profile_id}-{emotion}.mp4'
+                    video_data, content_type = await self.download_file(info['url'], 'video/mp4')
+                    if video_data:
+                        upload_result = await oss.upload_file_async(
+                            video_key, file_data=video_data, content_type=content_type
+                        )
+                        if upload_result:
+                            # 更新为 OSS URL
+                            info['url'] = f'{settings.OSS_BUCKET_URL}/{video_key}'
+                        else:
+                            logger.error(f'视频上传失败: {emotion}')
+                            info['status'] = 'failed'
+                            info['msg'] = '上传到OSS失败'
+            profile.gen_vids = results
+            profile.status = 'success'
+            await profile.save()
+            logger.info(f'{profile_id} 百炼视频生成结果已保存')
+        except Exception as e:
+            logger.error(f'{profile_id} 百炼视频生成结果保存失败: {e}')
 
 
 bl_service = BailianService()

@@ -66,5 +66,9 @@ class Voice(BaseModel, TimestampMixin):
 class Profile(BaseModel, TimestampMixin):
     user_id = fields.CharField(max_length=12, null=True, index=True, description='用户ID')
     name = fields.CharField(max_length=64, null=True, index=True, description='形象名称')
-    image = fields.TextField(null=True, description='形象图片')
-    vids = fields.JSONField(null=True, description='视频列表')
+    ori_img = fields.TextField(null=True, description='原始上传图片')
+    gen_img = fields.TextField(null=True, description='生成形象图片')
+    gen_vids = fields.JSONField(null=True, description='视频列表，emotion-url 字典')
+    public = fields.BooleanField(default=False, description='是否公开')
+    method = fields.CharField(max_length=36, null=True, index=True, description='生成方式')
+    status = fields.CharField(max_length=36, null=True, index=True, description='形象状态')

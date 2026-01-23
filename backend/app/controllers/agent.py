@@ -1,4 +1,4 @@
-from models import Agent, AgentTemplate, Voice
+from models import Agent, AgentTemplate, Voice, Profile
 from schemas.agent import (
     AgentCreate,
     AgentUpdate,
@@ -6,6 +6,8 @@ from schemas.agent import (
     AgentTemplateUpdate,
     VoiceCreate,
     VoiceUpdate,
+    ProfileCreate,
+    ProfileUpdate,
 )
 
 from .crud import CRUDBase
@@ -33,3 +35,11 @@ class VoiceController(CRUDBase[Voice, VoiceCreate, VoiceUpdate]):
 
 
 voice_controller = VoiceController()
+
+
+class ProfileController(CRUDBase[Profile, ProfileCreate, ProfileUpdate]):
+    def __init__(self):
+        super().__init__(model=Profile)
+
+
+profile_controller = ProfileController()

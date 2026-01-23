@@ -38,6 +38,14 @@ export default {
   createAgentTemplate: (data = {}) => request.post('/agent/template/create', data),
   updateAgentTemplate: (data = {}) => request.post('/agent/template/update', data),
   deleteAgentTemplate: (params = {}) => request.delete('/agent/template/delete', { params }),
+  // resource-profile
+  getProfileList: (params = {}) => request.get('/agent/profile/list', { params }),
+  profileUploadImg: (data = {}) => request.post('/agent/profile/upload-img', data),
+  profileGenerateVid: (data = {}) => request.post('/agent/profile/generate-vid', data),
+  getProfile: (params = {}) => request.get('/agent/profile/get', { params }),
+  profileUploadVid: (data = {}) => request.post('/agent/profile/upload-vid', data),
+  updateProfile: (data = {}) => request.post('/agent/profile/update', data),
+  deleteProfile: (params = {}) => request.delete('/agent/profile/delete', { params }),
   // resource-device
   getDeviceList: (params = {}) => request.get('/device/list', { params }),
   createDevice: (data = {}) => request.post('/device/create', data),

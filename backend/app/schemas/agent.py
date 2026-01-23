@@ -88,3 +88,20 @@ class VoiceCreate(BaseModel):
 class VoiceUpdate(VoiceCreate):
     id: int = Field(description='ID')
     user_id: Optional[str] = Field(default=None, description='用户ID')
+
+
+# ========== Profile ==========
+
+
+class ProfileCreate(BaseModel):
+    id: int = Field(description='形象ID')
+    name: Optional[str] = Field(default=None, description='形象名称')
+    ori_img: Optional[str] = Field(default=None, description='原始上传图片')
+    gen_img: Optional[str] = Field(default=None, description='生成形象图片')
+    gen_vids: Optional[dict] = Field(default=None, description='生成形象视频，emotion-url 字典')
+    public: Optional[bool] = Field(default=False, description='是否公开')
+    method: Optional[str] = Field(default=None, description='生成方式，支持 bailian')
+    status: Optional[str] = Field(default=None, description='形象状态')
+
+
+class ProfileUpdate(ProfileCreate): ...

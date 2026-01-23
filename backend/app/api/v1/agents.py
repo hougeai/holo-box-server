@@ -2,15 +2,23 @@ import hashlib
 from fastapi import APIRouter, Query
 from fastapi import File, UploadFile, Form
 from tortoise.expressions import Q
-from core.background import CTX_USER_ID
+from core.background import CTX_USER_ID, BgTasks
 from core.log import logger
 from core.xz_api import xz_service
+from core.profile_api import bl_service
 from core.minio import oss
 from core.config import settings
-from controllers import agent_controller, agent_template_controller, voice_controller
+from controllers import agent_controller, agent_template_controller, voice_controller, profile_controller
 from schemas.base import Fail, Success, SuccessExtra
-from schemas.agent import AgentCreate, AgentUpdate, AgentTemplateCreate, AgentTemplateUpdate
-from models.agent import Agent, AgentTemplate, Voice, LLM
+from schemas.agent import (
+    AgentCreate,
+    AgentUpdate,
+    AgentTemplateCreate,
+    AgentTemplateUpdate,
+    ProfileCreate,
+    ProfileUpdate,
+)
+from models.agent import Agent, AgentTemplate, Voice, LLM, Profile
 
 router = APIRouter()
 
@@ -187,6 +195,158 @@ async def delete_agent_template(
     return Success(msg='Deleted Successfully')
 
 
+# 形象相关
+@router.get('/profile/list', summary='查看形象列表')
+async def list_profile(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(999, description='每页数量'),
+    user_id: str = Query('', description='用户ID，用于搜索'),
+    public: bool = Query(None, description='是否公开的形象'),
+):
+    q = Q()
+    if user_id:
+        q &= Q(user_id=user_id)
+    if public is not None:
+        q &= Q(public=public)
+    total, objs = await profile_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    data = [await obj.to_dict() for obj in objs]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+@router.post('/profile/upload-img', summary='AIGC创建形象第一步：上传原始图片，生成形象记录')
+async def upload_img(
+    name: str = Form(..., description='形象名称'),
+    ori_img: UploadFile = File(...),
+    ret_gen_img: bool = Form(True, description='是否生成形象图片'),
+):
+    user_id = CTX_USER_ID.get()
+    obj = await Profile.filter(user_id=user_id, name=name).first()
+    if obj:
+        return Fail(code=400, msg=f'{name}已存在，请重新命名')
+    ori_img = await ori_img.read()
+    ori_img_key = f'profile/{user_id}-{name}-ori-img.png'
+    result = await oss.upload_file_async(ori_img_key, file_data=ori_img)
+    if not result:
+        return Fail(code=400, msg='上传原始图片失败')
+    # 上传成功，根据ori_img_url生成形象图片
+    ori_img_url = f'{settings.OSS_BUCKET_URL}/{ori_img_key}'
+    if ret_gen_img:
+        gen_img_url, msg = await bl_service.generate_image(ori_img_url)
+        if not gen_img_url:
+            logger.error(f'生成形象图片失败: {msg}')
+            return Fail(code=400, msg=f'生成形象图片失败: {msg}')
+        # 下载百炼生成的图片并上传到 oss
+        gen_img_key = f'profile/img/{user_id}-{name}-gen-img.png'
+        gen_img_data, content_type = await bl_service.download_file(gen_img_url, 'image/png')
+        if not gen_img_data:
+            logger.error('下载生成图片失败')
+            return Fail(code=400, msg='下载生成图片失败')
+        result = await oss.upload_file_async(gen_img_key, file_data=gen_img_data, content_type=content_type)
+        if not result:
+            logger.error('上传生成图片失败')
+            return Fail(code=400, msg='上传生成图片失败')
+        gen_img_url = f'{settings.OSS_BUCKET_URL}/{gen_img_key}'
+    else:
+        gen_img_url = None
+    # 创建profile栏位
+    obj = await Profile.create(
+        user_id=user_id,
+        name=name,
+        ori_img=ori_img_url,
+        gen_img=gen_img_url,
+        status='pending',
+    )
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.post('/profile/generate-vid', summary='AIGC创建形象第二步：生成形象视频，立即返回')
+async def generate_vid(
+    obj_in: ProfileCreate,
+):
+    obj = await Profile.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='请先创建形象第一步获取形象id')
+    # 根据不同方法创建形象
+    obj.method = obj_in.method
+    if obj_in.method == 'bailian':
+        obj = await Profile.get(id=obj_in.id)
+        pending = await bl_service.submit_generate_all_emotions(obj.gen_img)
+        if not pending:
+            return Fail(code=400, msg='提交生成所有情绪视频任务失败')
+        await BgTasks.add_task(
+            bl_service.poll_and_save, pending, obj.id
+        )  # 响应返回前端之后，fastapi会自动执行这个后台任务
+        obj.status = 'processing'
+        await obj.save()
+        data = await obj.to_dict()
+        return Success(data=data)
+    else:
+        return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
+
+
+@router.get('/profile/', summary='查询形象详情，包括形象生成状态等')
+async def get_profile(
+    id: int = Query(..., description='ID'),
+):
+    obj = await Profile.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='Profile not found')
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.post('/profile/upload-vid', summary='手动创建形象：上传视频文件，返回url')
+async def upload_vid(
+    id: int = Form(..., description='ID'),
+    emotion: str = Form(..., description='情绪'),
+    video: UploadFile = File(...),
+):
+    video_key = f'profile/vid/{id}-{emotion}.mp4'
+    video_data = await video.read()
+    upload_result = await oss.upload_file_async(
+        video_key,
+        file_data=video_data,
+        content_type=video.content_type or 'application/octet-stream',
+    )
+    if not upload_result:
+        return Fail(code=400, msg='上传视频文件失败')
+    video_url = f'{settings.OSS_BUCKET_URL}/{video_key}'
+    return Success(data={'video_url': video_url})
+
+
+@router.post('/profile/update', summary='手动创建形象(上传视频url)/更新形象')
+async def update_profile(
+    obj_in: ProfileUpdate,
+):
+    obj = await Profile.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='形象未创建')
+    obj = await profile_controller.update(id=obj.id, obj_in=obj_in)
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.delete('/profile/delete', summary='删除形象')
+async def delete_profile(
+    id: int = Query(..., description='ID'),
+):
+    obj = await profile_controller.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='形象未创建')
+    # 先删除oss中的文件
+    if obj.ori_img:
+        await oss.delete_file_async(key=obj.ori_img)
+    if obj.gen_img:
+        await oss.delete_file_async(key=obj.gen_img)
+    if obj.gen_vids:
+        for emotion, info in obj.gen_vids.items():
+            if info.get('url'):
+                await oss.delete_file_async(key=info['url'])
+    await profile_controller.remove(id=id)
+    return Success(msg='删除成功')
+
+
 # 音色克隆相关
 @router.post('/voice/upload', summary='上传音频文件')
 async def upload_voice(
@@ -215,7 +375,7 @@ async def upload_voice(
         ref_audio=audio_key,
         tts_voice_id=tts_voice_id,
         tts_voice_name=tts_voice_name,
-        status='Pending',
+        status='pending',
     )
     data = await obj.to_dict(exclude_fields=['update_at'])
     return Success(data=data)
