@@ -48,8 +48,7 @@ async def list_agent(
 async def create_agent(
     obj_in: AgentCreate,
 ):
-    user_id = CTX_USER_ID.get()
-    obj = await Agent.filter(user_id=user_id, agent_name=obj_in.agent_name).first()
+    obj = await Agent.filter(user_id=obj_in.user_id, agent_name=obj_in.agent_name).first()
     if obj:
         return Fail(code=400, msg=f'{obj_in.agent_name}已存在，请重新命名')
     res = await xz_service.create_agent(obj_in)
@@ -57,7 +56,6 @@ async def create_agent(
         logger.error(f'创建智能体失败: {res}')
         return Fail(code=400, msg='XZ-API创建失败')
     obj_in.agent_id = str(res['data'].get('id'))
-    obj_in.user_id = user_id
     # 查询智能体详情
     res = await xz_service.get_agent(obj_in.agent_id)
     if not res or not res['data']:
@@ -224,38 +222,40 @@ async def upload_img(
     if obj:
         return Fail(code=400, msg=f'{name}已存在，请重新命名')
     ori_img = await ori_img.read()
-    ori_img_key = f'profile/img/{user_id}-{name}-ori-img.png'
-    result = await oss.upload_file_async(ori_img_key, file_data=ori_img)
-    if not result:
-        return Fail(code=400, msg='上传原始图片失败')
-    # 上传成功，根据ori_img_url生成形象图片
-    ori_img_url = f'{settings.OSS_BUCKET_URL}/{ori_img_key}'
-    if ret_gen_img:
-        gen_img_url, msg = await bl_service.generate_image(ori_img_url)
-        if not gen_img_url:
-            logger.error(f'生成形象图片失败: {msg}')
-            return Fail(code=400, msg=f'生成形象图片失败: {msg}')
-        # 下载百炼生成的图片并上传到 oss
-        gen_img_key = f'profile/img/{user_id}-{name}-gen-img.png'
-        gen_img_data, content_type = await bl_service.download_file(gen_img_url, 'image/png')
-        if not gen_img_data:
-            logger.error('下载生成图片失败')
-            return Fail(code=400, msg='下载生成图片失败')
-        result = await oss.upload_file_async(gen_img_key, file_data=gen_img_data, content_type=content_type)
-        if not result:
-            logger.error('上传生成图片失败')
-            return Fail(code=400, msg='上传生成图片失败')
-        gen_img_url = f'{settings.OSS_BUCKET_URL}/{gen_img_key}'
-    else:
-        gen_img_url = None
     # 创建profile栏位
     obj = await Profile.create(
         user_id=user_id,
         name=name,
-        ori_img=ori_img_url,
-        gen_img=gen_img_url,
         status='pending',
     )
+    ori_img_key = f'profile/img/{obj.id}-ori-img.png'
+    result = await oss.upload_file_async(ori_img_key, file_data=ori_img)
+    if not result:
+        await profile_controller.remove(id=obj.id)
+        return Fail(code=400, msg='上传原始图片失败')
+    # 上传成功，根据ori_img_url生成形象图片
+    ori_img_url = f'{settings.OSS_BUCKET_URL}/{ori_img_key}'
+    obj.ori_img = ori_img_url
+    if ret_gen_img:
+        gen_img_url, msg = await bl_service.generate_image(ori_img_url)
+        if not gen_img_url:
+            logger.error(f'生成形象图片失败: {msg}')
+            await profile_controller.remove(id=obj.id)
+            return Fail(code=400, msg=f'生成形象图片失败: {msg}')
+        # 下载百炼生成的图片并上传到 oss
+        gen_img_key = f'profile/img/{obj.id}-gen-img.png'
+        gen_img_data, content_type = await bl_service.download_file(gen_img_url, 'image/png')
+        if not gen_img_data:
+            logger.error('下载生成图片失败')
+            await profile_controller.remove(id=obj.id)
+            return Fail(code=400, msg='下载生成图片失败')
+        result = await oss.upload_file_async(gen_img_key, file_data=gen_img_data, content_type=content_type)
+        if not result:
+            logger.error('上传生成图片失败')
+            await profile_controller.remove(id=obj.id)
+            return Fail(code=400, msg='上传生成图片失败')
+        obj.gen_img = f'{settings.OSS_BUCKET_URL}/{gen_img_key}'
+    await obj.save()
     data = await obj.to_dict()
     return Success(data=data)
 

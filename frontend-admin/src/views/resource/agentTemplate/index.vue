@@ -1,6 +1,6 @@
 <script setup>
-import { h, onMounted, ref, resolveDirective, withDirectives, computed } from 'vue'
-import { NButton, NInput, NPopconfirm } from 'naive-ui'
+import { h, onMounted, ref, resolveDirective, withDirectives, computed, watch } from 'vue'
+import { NButton, NInput, NPopconfirm, NSelect, NFormItem } from 'naive-ui'
 
 import { formatDate, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
 import { useCRUD } from '@/composables'
@@ -35,6 +35,8 @@ const {
     asr_speed: 'normal',
     tts_pitch: 0,
     memory_type: 'SHORT_TERM',
+    profile_id: null,
+    avatar: '',
   },
   doCreate: api.createAgentTemplate,
   doUpdate: api.updateAgentTemplate,
@@ -46,6 +48,8 @@ const {
 const llmList = ref([])
 // Voice列表
 const voiceList = ref([])
+// 形象列表
+const profileList = ref([])
 // 当前播放的音频 URL
 const currentPlayingAudio = ref(null)
 // 获取LLM列表
@@ -71,7 +75,17 @@ const fetchVoiceList = async () => {
     console.error('获取Voice列表失败:', error)
   }
 }
-
+// 获取形象列表
+const fetchProfileList = async () => {
+  try {
+    const res = await api.getProfileList({ user_id: userStore.userId, public: true })
+    if (res.data) {
+      profileList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取形象列表失败:', error)
+  }
+}
 // 试听音频
 let currentAudioInstance = null
 const handlePlayAudio = (voiceDemo) => {
@@ -179,10 +193,35 @@ const ttsSpeedOptions = computed(() => {
   return Object.entries(ttsSpeedMap).map(([value, label]) => ({ label, value }))
 })
 
-onMounted(() => {
+// 形象选项
+const profileOptions = computed(() => {
+  return profileList.value.map((profile) => ({
+    label: profile.name,
+    value: Number(profile.id),
+  }))
+})
+
+// 当前选中的profile对应的gen_img
+const currentProfileGenImg = computed(() => {
+  const profile = profileList.value.find((p) => p.id === modalForm.value.profile_id)
+  return profile?.ori_img || ''
+})
+
+// 监听profile_id变化，同步更新avatar
+watch(
+  () => modalForm.value.profile_id,
+  (newVal) => {
+    const profile = profileList.value.find((p) => p.id === newVal)
+    if (profile?.ori_img) {
+      modalForm.value.avatar = profile.ori_img
+    }
+  },
+  { immediate: true },
+)
+
+onMounted(async () => {
   $table.value?.handleSearch()
-  fetchLlmList()
-  fetchVoiceList()
+  await Promise.all([fetchLlmList(), fetchVoiceList(), fetchProfileList()])
 })
 
 const columns = [
@@ -231,6 +270,29 @@ const columns = [
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
+  },
+  {
+    title: '形象ID',
+    key: 'profile_id',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '头像',
+    key: 'avatar',
+    width: 30,
+    align: 'center',
+    render: (row) => {
+      return row.avatar
+        ? h('img', {
+            src: row.avatar,
+            style:
+              'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
+            onClick: () => window.open(row.avatar, '_blank'),
+          })
+        : h('span', { style: 'color: #ccc;' }, '-')
+    },
   },
   {
     title: '创建时间',
@@ -400,64 +462,103 @@ const columns = [
             clearable
           />
         </NFormItem>
-        <NFormItem
-          label="对话语言"
-          path="language"
-          :rule="{
-            required: true,
-            message: '请选择对话语言',
-            trigger: ['change', 'blur'],
-          }"
-        >
-          <NSelect
-            v-model:value="modalForm.language"
-            :options="languageOptions"
-            placeholder="请选择对话语言"
-            clearable
-          />
-        </NFormItem>
-        <NFormItem
-          label="角色音色"
-          path="tts_voice"
-          :rule="{
-            required: true,
-            message: '请选择角色音色',
-            trigger: ['change', 'blur'],
-          }"
-        >
-          <NSelect
-            v-model:value="modalForm.tts_voice"
-            :options="filteredVoices"
-            :render-label="renderVoiceLabel"
-            placeholder="请先选择对话语言，再选择角色音色"
-            clearable
-          />
-        </NFormItem>
-        <NFormItem label="角色语速" path="tts_speech_speed">
-          <NSelect
-            v-model:value="modalForm.tts_speech_speed"
-            :options="ttsSpeedOptions"
-            placeholder="请选择角色语速"
-            clearable
-          />
-        </NFormItem>
-        <NFormItem label="角色音调" path="tts_pitch">
-          <NInputNumber
-            v-model:value="modalForm.tts_pitch"
-            :min="-3"
-            :max="3"
-            placeholder="请输入角色音调(-3到3)"
-            clearable
-          />
-        </NFormItem>
-        <NFormItem label="语音识别速度" path="asr_speed">
-          <NSelect
-            v-model:value="modalForm.asr_speed"
-            :options="asrSpeedOptions"
-            placeholder="请选择语音识别速度"
-            clearable
-          />
-        </NFormItem>
+
+        <div class="flex gap-16">
+          <NFormItem
+            label="对话语言"
+            path="language"
+            :rule="{
+              required: true,
+              message: '请选择对话语言',
+              trigger: ['change', 'blur'],
+            }"
+            class="flex-1"
+          >
+            <NSelect
+              v-model:value="modalForm.language"
+              :options="languageOptions"
+              placeholder="请选择对话语言"
+              clearable
+            />
+          </NFormItem>
+          <NFormItem
+            label="角色音色"
+            path="tts_voice"
+            :rule="{
+              required: true,
+              message: '请选择角色音色',
+              trigger: ['change', 'blur'],
+            }"
+            class="flex-1"
+          >
+            <NSelect
+              v-model:value="modalForm.tts_voice"
+              :options="filteredVoices"
+              :render-label="renderVoiceLabel"
+              placeholder="请先选择对话语言，再选择角色音色"
+              clearable
+            />
+          </NFormItem>
+        </div>
+        <div class="flex gap-16">
+          <NFormItem label="角色语速" path="tts_speech_speed" class="flex-1">
+            <NSelect
+              v-model:value="modalForm.tts_speech_speed"
+              :options="ttsSpeedOptions"
+              placeholder="请选择角色语速"
+              clearable
+            />
+          </NFormItem>
+          <NFormItem label="角色音调" path="tts_pitch" class="flex-1">
+            <NInputNumber
+              v-model:value="modalForm.tts_pitch"
+              :min="-3"
+              :max="3"
+              placeholder="请输入角色音调(-3到3)"
+              clearable
+            />
+          </NFormItem>
+        </div>
+        <div class="flex gap-16">
+          <NFormItem label="语音识别速度" path="asr_speed" class="flex-1">
+            <NSelect
+              v-model:value="modalForm.asr_speed"
+              :options="asrSpeedOptions"
+              placeholder="请选择语音识别速度"
+              clearable
+            />
+          </NFormItem>
+        </div>
+        <div class="flex gap-16">
+          <NFormItem
+            label="角色形象"
+            path="profile_id"
+            class="flex-1"
+            :rule="{
+              type: 'number',
+              required: true,
+              message: '请选择角色形象',
+              trigger: ['change', 'blur'],
+            }"
+          >
+            <NSelect
+              v-model:value="modalForm.profile_id"
+              :options="profileOptions"
+              placeholder="请选择角色形象"
+              clearable
+            />
+          </NFormItem>
+          <NFormItem label="头像预览" class="flex-1">
+            <div class="w-50 h-50 rounded-lg border border-gray-200">
+              <img
+                v-if="currentProfileGenImg"
+                :src="currentProfileGenImg"
+                alt="头像预览"
+                class="w-full h-full object-cover"
+              />
+            </div>
+          </NFormItem>
+        </div>
       </NForm>
     </CrudModal>
   </CommonPage>

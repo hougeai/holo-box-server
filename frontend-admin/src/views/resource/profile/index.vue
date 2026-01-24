@@ -240,6 +240,7 @@ const finishUpload = async () => {
   try {
     const res = await api.updateProfile({
       id: uploadForm.value.profileId,
+      gen_img: uploadForm.value.oriImgUrl,
       gen_vids: uploadForm.value.uploadedVideos,
       method: 'upload',
       status: 'success',

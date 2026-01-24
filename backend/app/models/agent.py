@@ -15,6 +15,8 @@ class AgentTemplate(BaseModel, TimestampMixin):
     tts_speech_speed = fields.CharField(max_length=64, default='normal', null=True, description='TTS语速')
     asr_speed = fields.CharField(max_length=64, default='normal', null=True, description='ASR语速')
     tts_pitch = fields.IntField(default=0, null=True, description='TTS音调')
+    avatar = fields.TextField(null=True, description='头像')
+    profile_id = fields.IntField(null=True, index=True, description='形象ID')
 
 
 # agent表
@@ -39,6 +41,7 @@ class Agent(BaseModel, TimestampMixin):
     device_count = fields.IntField(default=0, null=True, description='设备数量')
     source = fields.CharField(max_length=64, null=True, index=True, description='创建来源')
     avatar = fields.TextField(null=True, description='头像')
+    profile_id = fields.IntField(null=True, index=True, description='形象ID')
 
 
 # LLM表

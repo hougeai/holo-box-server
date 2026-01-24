@@ -17,6 +17,8 @@ class AgentTemplateCreate(BaseModel):
     tts_speech_speed: Optional[str] = Field(default=None, description='TTS语速')
     asr_speed: Optional[str] = Field(default=None, description='ASR语速')
     tts_pitch: Optional[int] = Field(default=None, description='TTS音调')
+    avatar: Optional[str] = Field(default=None, description='头像')
+    profile_id: Optional[int] = Field(default=None, description='形象ID')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
@@ -48,6 +50,7 @@ class AgentCreate(BaseModel):
     device_count: Optional[int] = Field(default=0, description='设备数量')
     source: Optional[str] = Field(default=None, description='创建来源')
     avatar: Optional[str] = Field(default=None, description='头像')
+    profile_id: Optional[int] = Field(default=None, description='形象ID')
 
 
 class AgentUpdate(AgentCreate):
