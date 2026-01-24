@@ -12,6 +12,12 @@ from minio.error import S3Error
 from minio.deleteobjects import DeleteObject
 from minio.commonconfig import ENABLED, Filter
 from minio.lifecycleconfig import LifecycleConfig, Rule, Expiration
+
+from obs import ObsClient
+from obs import PutObjectHeader
+from obs import DeleteObjectsRequest
+from obs import Object
+
 from .config import settings
 from .log import logger
 
@@ -235,5 +241,130 @@ class MinIO:
         return await asyncio.to_thread(self.delete_file, key)
 
 
+class OBSStorage:
+    def __init__(self):
+        self.client = ObsClient(
+            access_key_id=minio_access_key,
+            secret_access_key=minio_secret_key,
+            server=minio_endpoint,  # https://obs.cn-north-4.myhuaweicloud.com
+        )
+        self.bucket_name = minio_bucket_name
+        self.valid_rates = [8000, 12000, 16000, 24000, 48000]
+        self.target_rate = 16000
+
+        # 确保存储桶存在
+        if not self.client.headBucket(self.bucket_name).status < 300:
+            self.client.createBucket(self.bucket_name)
+
+    def upload_audio(self, key, audio_path=None, audio_data=None, audio_text=''):
+        if audio_path:
+            data, samplerate = sf.read(audio_path)
+        elif audio_data:
+            audio = AudioSegment.from_file(BytesIO(audio_data))
+            samplerate = audio.frame_rate
+            samples = np.array(audio.get_array_of_samples(), dtype=np.float32)
+            data = samples / np.iinfo(audio.array_type).max
+
+        if samplerate not in self.valid_rates:
+            num_samples = round(len(data) * self.target_rate / samplerate)
+            data = signal.resample(data, num_samples)
+            samplerate = self.target_rate
+
+        with BytesIO() as f:
+            sf.write(f, data, samplerate, format='ogg', subtype='OPUS')
+            f.seek(0)
+
+            headers = PutObjectHeader()
+            headers.contentType = 'audio/ogg'
+            headers.metadata = {'text': base64.b64encode(audio_text.encode()).decode()}
+
+            resp = self.client.putObject(self.bucket_name, key, body=f, headers=headers)
+            return resp.status < 300
+
+    def download_audio(self, key, save_path):
+        resp = self.client.getObject(self.bucket_name, key)
+        if resp.status >= 300:
+            return None
+
+        meta = resp.header.get('x-obs-meta-text')
+        text = base64.b64decode(meta).decode() if meta else ''
+
+        with BytesIO(resp.body.read()) as ogg:
+            data, samplerate = sf.read(ogg)
+            sf.write(save_path, data, samplerate, format='wav')
+
+        return text
+
+    def upload_file(self, key, file_path=None, file_data=None, content_type='application/octet-stream'):
+        headers = PutObjectHeader()
+        headers.contentType = content_type
+
+        if file_path:
+            resp = self.client.putFile(self.bucket_name, key, file_path, headers=headers)
+            return resp.status < 300
+
+        if file_data:
+            resp = self.client.putObject(self.bucket_name, key, BytesIO(file_data), headers=headers)
+            return resp.status < 300
+
+        return False
+
+    def download_file(self, key, save_path):
+        resp = self.client.getObject(self.bucket_name, key, loadStreamInMemory=True)
+        if resp.status >= 300:
+            return False
+        data = resp.body.buffer
+        with open(save_path, 'wb') as f:
+            f.write(data)
+
+        return True
+
+    def delete_file(self, key):
+        resp = self.client.deleteObject(self.bucket_name, key)
+        return resp.status < 300
+
+    def delete_batch(self, keys):
+        objects = [Object(key=key, versionId=None) for key in keys]
+
+        req = DeleteObjectsRequest(quiet=True, objects=objects, encoding_type='url')
+
+        resp = self.client.deleteObjects(self.bucket_name, req)
+
+        if resp.status >= 300:
+            return False
+        return True
+
+    def check_key_exists(self, key):
+        resp = self.client.headObject(self.bucket_name, key)
+        return resp.status < 300
+
+    def list_objects(self, prefix=None):
+        keys = []
+        marker = None
+        while True:
+            resp = self.client.listObjects(self.bucket_name, prefix=prefix, marker=marker)
+            for obj in resp.body.contents:
+                keys.append(obj.key)
+            if not resp.body.is_truncated:
+                break
+            marker = resp.body.next_marker
+        return keys
+
+    async def upload_file_async(self, key, file_path=None, file_data=None, content_type='application/octet-stream'):
+        """异步上传文件"""
+        return await asyncio.to_thread(self.upload_file, key, file_path, file_data, content_type)
+
+    async def upload_audio_async(self, key, audio_path=None, audio_data=None, audio_text=''):
+        """异步上传音频"""
+        return await asyncio.to_thread(self.upload_audio, key, audio_path, audio_data, audio_text)
+
+    async def delete_file_async(self, key):
+        """异步删除文件"""
+        return await asyncio.to_thread(self.delete_file, key)
+
+
 # 创建对象存储示例
-oss = MinIO()
+if minio_endpoint.startswith('https://obs'):
+    oss = OBSStorage()
+else:
+    oss = MinIO()

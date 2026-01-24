@@ -21,7 +21,12 @@ def test_wxlogin():
 def test_oss():
     from core.minio import oss
 
-    oss.set_bucket_public_read()
+    # res = oss.set_bucket_public_read()
+    res = oss.list_objects()
+    # res = oss.upload_file('uploads/1.png', file_path='1.png')
+    # res = oss.download_file('uploads/1.png', save_path='2.png')
+    # res = oss.delete_batch(['uploads/1.png'])
+    print(res)
 
 
 async def test_xz():
@@ -48,8 +53,9 @@ async def test_profile():
 
 if __name__ == '__main__':
     # test_wxlogin()
-    import asyncio
+    test_oss()
+    # import asyncio
 
     # asyncio.run(test_xz())
-    asyncio.run(test_wx())
+    # asyncio.run(test_wx())
     # asyncio.run(test_profile())

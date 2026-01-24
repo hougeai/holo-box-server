@@ -159,6 +159,71 @@ class BailianService:
             logger.error(f'百炼视频生成超时或失败: {task_id} {task_status}')
             return None, f'百炼视频生成超时或失败: {task_id} {task_status}'
 
+    async def generate_and_save(self, profile_id, img_url, batch_size=2):
+        try:
+            # 获取所有情绪类型
+            emotions = list(vid_prompts.keys())
+            results = {}
+            # 分批处理情绪视频生成任务
+            for i in range(0, len(emotions), batch_size):
+                batch_emotions = emotions[i : i + batch_size]
+                logger.info(f'正在处理情绪批次: {batch_emotions}')
+
+                # 创建当前批次的任务
+                batch_tasks = [self.generate_video(img_url, emotion) for emotion in batch_emotions]
+                batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                # 处理当前批次的结果
+                for j, result in enumerate(batch_results):
+                    emotion = batch_emotions[j]
+                    # 处理可能的异常情况
+                    if isinstance(result, Exception):
+                        logger.error(f'生成情绪 {emotion} 的视频时发生异常: {result}')
+                        results[emotion] = {'url': None, 'status': 'failed', 'msg': str(result)}
+                        continue
+                    video_url, status = result
+                    if status == 'success':
+                        results[emotion] = {'url': video_url, 'status': 'success', 'msg': ''}
+                    else:
+                        results[emotion] = {'url': None, 'status': 'failed', 'msg': status}
+                # 在批次之间增加延迟以减少API压力
+                if i + batch_size < len(emotions):
+                    await asyncio.sleep(1)
+            # 保存结果到数据库
+            profile = await Profile.get(id=profile_id)
+
+            # 下载视频并上传到 OSS
+            for emotion, info in results.items():
+                if info['status'] == 'success' and info['url']:
+                    video_key = f'profile/vid/{profile_id}-{emotion}.mp4'
+                    video_data, content_type = await self.download_file(info['url'], 'video/mp4')
+                    if video_data:
+                        upload_result = await oss.upload_file_async(
+                            video_key, file_data=video_data, content_type=content_type
+                        )
+                        if upload_result:
+                            info['url'] = f'{settings.OSS_BUCKET_URL}/{video_key}'
+                        else:
+                            logger.error(f'视频上传失败: {emotion}')
+                            info['url'] = None
+                            info['status'] = 'failed'
+                            info['msg'] = '上传到OSS失败'
+            profile.gen_vids = results
+            profile.status = 'success'
+            await profile.save()
+            logger.info(f'{profile_id} 百炼视频生成结果已保存')
+            return results
+        except Exception as e:
+            logger.error(f'{profile_id} 百炼视频生成结果保存失败: {e}')
+            # 如果出现异常，仍然尝试更新数据库状态
+            try:
+                profile = await Profile.get(id=profile_id)
+                profile.status = 'failed'
+                await profile.save()
+            except Exception as db_e:
+                logger.error(f'更新数据库状态失败: {db_e}')
+            raise e
+
+    # 以下函数废弃：并发限制为2不能这么做
     async def submit_all_emotions(self, img_url):
         """
         提交生成所有情绪的视频任务

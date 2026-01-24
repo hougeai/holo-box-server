@@ -40,9 +40,10 @@ export default {
   deleteAgentTemplate: (params = {}) => request.delete('/agent/template/delete', { params }),
   // resource-profile
   getProfileList: (params = {}) => request.get('/agent/profile/list', { params }),
-  profileUploadImg: (data = {}) => request.post('/agent/profile/upload-img', data),
+  profileUploadImg: (data = {}) =>
+    request.post('/agent/profile/upload-img', data, { timeout: 120000 }),
   profileGenerateVid: (data = {}) => request.post('/agent/profile/generate-vid', data),
-  getProfile: (params = {}) => request.get('/agent/profile/get', { params }),
+  getProfile: (params = {}) => request.get('/agent/profile/', { params }),
   profileUploadVid: (data = {}) => request.post('/agent/profile/upload-vid', data),
   updateProfile: (data = {}) => request.post('/agent/profile/update', data),
   deleteProfile: (params = {}) => request.delete('/agent/profile/delete', { params }),

@@ -14,6 +14,7 @@ import {
   NProgress,
   NDivider,
   NSpin,
+  NSwitch,
 } from 'naive-ui'
 import TheIcon from '@/components/icon/TheIcon.vue'
 
@@ -75,16 +76,25 @@ const emotions = [
 // 轮询定时器
 let pollTimer = null
 
-const { modalVisible, modalTitle, modalLoading, handleSave, modalForm, handleEdit, handleDelete } =
-  useCRUD({
-    name: 'Profile',
-    initForm: {
-      user_id: userStore.userId,
-    },
-    doUpdate: api.updateProfile,
-    doDelete: api.deleteProfile,
-    refresh: () => $table.value?.handleSearch(),
-  })
+const {
+  modalVisible,
+  modalTitle,
+  modalLoading,
+  handleSave,
+  modalForm,
+  modalFormRef,
+  handleEdit,
+  handleDelete,
+} = useCRUD({
+  name: 'Profile',
+  initForm: {
+    user_id: userStore.userId,
+    public: false,
+  },
+  doUpdate: api.updateProfile,
+  doDelete: api.deleteProfile,
+  refresh: () => $table.value?.handleSearch(),
+})
 
 // 打开创建对话框
 const openCreateModal = () => {
@@ -200,9 +210,18 @@ const handleUploadAllVideos = async () => {
 
         const res = await api.profileUploadVid(formData)
         if (res.code === 200) {
-          uploadForm.value.uploadedVideos[emotion.key] = res.data.video_url
+          uploadForm.value.uploadedVideos[emotion.key] = {
+            url: res.data.video_url,
+            status: 'success',
+            msg: '',
+          }
           $message.success(`${emotion.label}视频上传成功`)
         } else {
+          uploadForm.value.uploadedVideos[emotion.key] = {
+            url: '',
+            status: 'failed',
+            msg: res.msg || '上传失败',
+          }
           $message.error(`${emotion.label}视频上传失败: ${res.msg}`)
         }
       }
@@ -222,6 +241,7 @@ const finishUpload = async () => {
     const res = await api.updateProfile({
       id: uploadForm.value.profileId,
       gen_vids: uploadForm.value.uploadedVideos,
+      method: 'upload',
       status: 'success',
     })
     if (res.code === 200) {
@@ -303,7 +323,7 @@ const startGenerate = async () => {
 
 // AIGC生成：轮询状态
 const startPolling = () => {
-  const maxRetries = 60 // 最多轮询60次，每次2秒，共2分钟
+  const maxRetries = 60 // 最多轮询6*10次，每次10秒
   let retryCount = 0
 
   pollTimer = setInterval(async () => {
@@ -313,12 +333,8 @@ const startPolling = () => {
         const profile = res.data
         retryCount++
 
-        // 计算进度
-        const completedCount = profile.gen_vids
-          ? Object.values(profile.gen_vids).filter((v) => v.url).length
-          : 0
-        aigcForm.value.generateProgress = Math.floor((completedCount / emotions.length) * 100)
-
+        // 根据轮询次数估算进度，总轮询次数为maxRetries
+        aigcForm.value.generateProgress = Math.floor((retryCount / maxRetries) * 100)
         if (profile.status === 'success') {
           clearInterval(pollTimer)
           aigcForm.value.generating = false
@@ -337,7 +353,7 @@ const startPolling = () => {
     } catch (e) {
       console.error('轮询失败:', e)
     }
-  }, 2000)
+  }, 10000)
 }
 
 // 组件卸载时清除定时器
@@ -439,11 +455,26 @@ const columns = [
     width: 30,
     align: 'center',
     render(row) {
-      return h(
-        NTag,
-        { type: row.public ? 'success' : 'default' },
-        { default: () => (row.public ? '是' : '否') },
-      )
+      return h(NSwitch, {
+        value: row.public,
+        onUpdateValue: async (value) => {
+          try {
+            const res = await api.updateProfile({
+              id: row.id,
+              public: value,
+            })
+            if (res.code === 200) {
+              $message.success('更新成功')
+              $table.value?.handleSearch()
+            } else {
+              $message.error(res.msg || '更新失败')
+            }
+          } catch (error) {
+            console.error(error)
+            $message.error('更新失败')
+          }
+        },
+      })
     },
   },
   {
@@ -451,14 +482,26 @@ const columns = [
     key: 'method',
     width: 30,
     align: 'center',
-    ellipsis: { tooltip: true },
+    render(row) {
+      return h(
+        NTag,
+        { type: row.method === 'bailian' ? 'success' : 'default' },
+        { default: () => row.method },
+      )
+    },
   },
   {
     title: '状态',
     key: 'status',
     width: 30,
     align: 'center',
-    ellipsis: { tooltip: true },
+    render(row) {
+      return h(
+        NTag,
+        { type: row.status === 'success' ? 'success' : 'default' },
+        { default: () => row.status },
+      )
+    },
   },
   {
     title: '创建时间',
@@ -499,7 +542,7 @@ const columns = [
               icon: renderIcon('material-symbols:edit', { size: 16 }),
             },
           ),
-          [[vPermission, 'post/api/v1/profile/update']],
+          [[vPermission, 'post/api/v1/agent/profile/update']],
         ),
         h(
           NPopconfirm,
@@ -521,7 +564,7 @@ const columns = [
                     icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
                   },
                 ),
-                [[vPermission, 'delete/api/v1/profile/delete']],
+                [[vPermission, 'delete/api/v1/agent/profile/delete']],
               ),
             default: () => h('div', {}, '确定删除吗?'),
           },
@@ -673,42 +716,47 @@ const columns = [
               />
             </NFormItem>
             <NFormItem label="原始图片">
-              <div class="img-preview-wrapper">
-                <img v-if="aigcForm.oriImgUrl" :src="aigcForm.oriImgUrl" class="w-80 h-80" />
-                <div v-else class="img-placeholder">暂无图片</div>
-                <div class="upload-actions">
-                  <NUpload
-                    :show-file-list="false"
-                    :disabled="!!aigcForm.profileId || aigcForm.uploadingImg"
-                    accept="image/*"
-                    :on-change="handleAIGCSelectOriImg"
-                  >
-                    <NButton :disabled="!!aigcForm.profileId || aigcForm.uploadingImg">
-                      <TheIcon icon="material-symbols:upload" :size="16" class="mr-5" />选择图片
-                    </NButton>
-                  </NUpload>
-                  <NButton
-                    v-if="aigcForm.oriImgFile && !aigcForm.profileId"
-                    type="primary"
-                    :disabled="aigcForm.uploadingImg"
-                    :loading="aigcForm.uploadingImg"
-                    @click="handleAIGCUploadOriImg"
-                  >
-                    上传
-                  </NButton>
+              <div class="flex gap-4 items-start">
+                <div class="flex flex-col items-center">
+                  <div class="img-preview-wrapper">
+                    <img v-if="aigcForm.oriImgUrl" :src="aigcForm.oriImgUrl" class="w-80 h-80" />
+                    <div v-else class="img-placeholder">暂无图片</div>
+                    <div class="upload-actions mt-2">
+                      <NUpload
+                        :show-file-list="false"
+                        :disabled="!!aigcForm.profileId || aigcForm.uploadingImg"
+                        accept="image/*"
+                        :on-change="handleAIGCSelectOriImg"
+                      >
+                        <NButton :disabled="!!aigcForm.profileId || aigcForm.uploadingImg">
+                          <TheIcon icon="material-symbols:upload" :size="16" class="mr-5" />选择图片
+                        </NButton>
+                      </NUpload>
+                      <NButton
+                        v-if="aigcForm.oriImgFile && !aigcForm.profileId"
+                        type="primary"
+                        :disabled="aigcForm.uploadingImg"
+                        :loading="aigcForm.uploadingImg"
+                        @click="handleAIGCUploadOriImg"
+                      >
+                        上传
+                      </NButton>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </NFormItem>
-            <NFormItem v-if="aigcForm.genImgUrl" label="生成图片">
-              <div class="img-preview-wrapper">
-                <img :src="aigcForm.genImgUrl" class="w-80 h-80" />
+
+                <div v-if="aigcForm.genImgUrl" class="flex flex-col items-center">
+                  <div class="img-preview-wrapper">
+                    <img :src="aigcForm.genImgUrl" class="w-80 h-80" />
+                  </div>
+                </div>
               </div>
             </NFormItem>
           </NSpin>
 
-          <NDivider v-if="aigcForm.profileId">生成情绪视频</NDivider>
+          <NDivider v-if="aigcForm.profileId">生成情绪视频（10种）</NDivider>
 
-          <div v-if="aigcForm.profileId">
+          <div v-if="aigcForm.profileId" class="flex-col justify-center items-center">
             <p>将为您自动生成10种情绪的视频，完成后即可使用形象</p>
             <NButton
               type="primary"
@@ -742,7 +790,6 @@ const columns = [
         label-align="left"
         :label-width="110"
         :model="modalForm"
-        :disabled="modalAction === 'view'"
       >
         <NFormItem
           label="形象名称"
@@ -754,6 +801,9 @@ const columns = [
           }"
         >
           <NInput v-model:value="modalForm.name" placeholder="请输入形象名称" />
+        </NFormItem>
+        <NFormItem label="是否公开">
+          <NSwitch v-model:value="modalForm.public" />
         </NFormItem>
       </NForm>
     </CrudModal>

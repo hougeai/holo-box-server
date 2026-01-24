@@ -530,6 +530,17 @@ wheels = [
 ]
 
 [[package]]
+name = "esdk-obs-python"
+version = "3.25.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "crcmod" },
+    { name = "pycryptodome" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/40/99/52362d6e081a642d6de78f6ab53baa5e3f82f2386c48954e18ee7b4ab22b/esdk-obs-python-3.25.8.tar.gz", hash = "sha256:aeded00b27ecd5a25ffaec38a2cc9416b51923d48db96c663f1a735f859b5273", size = 96302 }
+
+[[package]]
 name = "fastapi"
 version = "0.111.0"
 source = { registry = "https://pypi.org/simple" }
@@ -664,6 +675,7 @@ dependencies = [
     { name = "dictdiffer" },
     { name = "dnspython" },
     { name = "email-validator" },
+    { name = "esdk-obs-python" },
     { name = "fastapi" },
     { name = "fastapi-cli" },
     { name = "filetype" },
@@ -741,6 +753,7 @@ requires-dist = [
     { name = "dictdiffer", specifier = "==0.9.0" },
     { name = "dnspython", specifier = "==2.7.0" },
     { name = "email-validator", specifier = "==2.2.0" },
+    { name = "esdk-obs-python", specifier = ">=3.25.8" },
     { name = "fastapi", specifier = "==0.111.0" },
     { name = "fastapi-cli", specifier = "==0.0.7" },
     { name = "filetype", specifier = ">=1.2.0" },

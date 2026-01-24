@@ -15,7 +15,7 @@ from schemas.agent import (
     AgentUpdate,
     AgentTemplateCreate,
     AgentTemplateUpdate,
-    ProfileCreate,
+    ProfileVidGen,
     ProfileUpdate,
 )
 from models.agent import Agent, AgentTemplate, Voice, LLM, Profile
@@ -224,7 +224,7 @@ async def upload_img(
     if obj:
         return Fail(code=400, msg=f'{name}已存在，请重新命名')
     ori_img = await ori_img.read()
-    ori_img_key = f'profile/{user_id}-{name}-ori-img.png'
+    ori_img_key = f'profile/img/{user_id}-{name}-ori-img.png'
     result = await oss.upload_file_async(ori_img_key, file_data=ori_img)
     if not result:
         return Fail(code=400, msg='上传原始图片失败')
@@ -262,7 +262,7 @@ async def upload_img(
 
 @router.post('/profile/generate-vid', summary='AIGC创建形象第二步：生成形象视频，立即返回')
 async def generate_vid(
-    obj_in: ProfileCreate,
+    obj_in: ProfileVidGen,
 ):
     obj = await Profile.get(id=obj_in.id)
     if not obj:
@@ -270,12 +270,8 @@ async def generate_vid(
     # 根据不同方法创建形象
     obj.method = obj_in.method
     if obj_in.method == 'bailian':
-        obj = await Profile.get(id=obj_in.id)
-        pending = await bl_service.submit_generate_all_emotions(obj.gen_img)
-        if not pending:
-            return Fail(code=400, msg='提交生成所有情绪视频任务失败')
         await BgTasks.add_task(
-            bl_service.poll_and_save, pending, obj.id
+            bl_service.generate_and_save, obj.id, obj.gen_img, 2
         )  # 响应返回前端之后，fastapi会自动执行这个后台任务
         obj.status = 'processing'
         await obj.save()
@@ -334,15 +330,18 @@ async def delete_profile(
     obj = await profile_controller.get(id=id)
     if not obj:
         return Fail(code=400, msg='形象未创建')
-    # 先删除oss中的文件
+    # 先删除oss中的文件：注意要改为key，而不是url
     if obj.ori_img:
-        await oss.delete_file_async(key=obj.ori_img)
+        key = obj.ori_img.replace(settings.OSS_BUCKET_URL, '')
+        await oss.delete_file_async(key=key)
     if obj.gen_img:
-        await oss.delete_file_async(key=obj.gen_img)
+        key = obj.gen_img.replace(settings.OSS_BUCKET_URL, '')
+        await oss.delete_file_async(key=key)
     if obj.gen_vids:
         for emotion, info in obj.gen_vids.items():
             if info.get('url'):
-                await oss.delete_file_async(key=info['url'])
+                key = info['url'].replace(settings.OSS_BUCKET_URL, '')
+                await oss.delete_file_async(key=key)
     await profile_controller.remove(id=id)
     return Success(msg='删除成功')
 
