@@ -52,6 +52,8 @@ export default {
   createDevice: (data = {}) => request.post('/device/create', data),
   updateDevice: (data = {}) => request.post('/device/update', data),
   deleteDevice: (params = {}) => request.delete('/device/delete', { params }),
+  bindDevice: (data = {}) => request.post('/device/bind', data),
+  unbindDevice: (params = {}) => request.delete('/device/unbind', { params }),
   // resource-ota
   getOtaList: (params = {}) => request.get('/resource/ota/list', { params }),
   createOta: (data = {}) => request.post('/resource/ota/create', data),

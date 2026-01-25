@@ -101,7 +101,7 @@ async def unbind_device(
         return Fail(msg='Device not found')
 
 
-@router.post('/unbind', summary='绑定设备')
+@router.post('/bind', summary='绑定设备')
 async def bind_device(obj_in: DeviceBind):
     res = await xz_service.bind_device(agentId=obj_in.agent_id, verificationCode=obj_in.code)
     if not res or not res['success']:

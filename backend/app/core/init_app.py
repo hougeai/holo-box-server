@@ -350,12 +350,11 @@ async def init_device():
     obj = await Device.exists()
     if not obj:
         await Device.create(
-            device_id='97:3d:ae:e6:83:d0',
+            mac_address='97:3d:ae:e6:83:d0',
             uuid='ab4ad1e9-0299-4880-9b0d-b96ea0a2bf3e',
             chip_type='esp32s3',
             device_model='holo-box-wifi',
             app_version='2.1.0',
-            user_id='1',
         )
 
 
