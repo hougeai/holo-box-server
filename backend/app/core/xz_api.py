@@ -31,9 +31,9 @@ class XZService:
                             await self.init_headers()
                             if attempt < max_retries - 1:
                                 continue  # 重新发起请求
-                        if response.status != 200:
-                            logger.error(f'请求失败 [{method} {url}]: {response.status}')
-                            return None
+                        # if response.status != 200:
+                        #     logger.error(f'请求失败 [{method} {url}]: {response.status}')
+                        #     return None
                         data = await response.json()
                         logger.info(f'请求成功 [{method} {url}]: {data}')
                         return data
@@ -221,20 +221,21 @@ class XZService:
         url = f'{self.base_url}/api/developers/agent-templates/{id}'
         return await self._make_request('DELETE', url)
 
-    async def bind_device(self, agentId, deviceCode):
+    async def bind_device(self, agentId, verificationCode):
         """绑定设备"""
-        url = f'{self.base_url}/xiaozhi/device/bind/{agentId}/{deviceCode}'
-        return await self._make_request('POST', url)
+        url = f'{self.base_url}/api/agents/{agentId}/devices'
+        data = {'verificationCode': verificationCode}
+        return await self._make_request('POST', url, json=data)
 
     async def unbind_device(self, deviceId):
         """解绑设备"""
-        data = {'deviceId': deviceId}
-        url = f'{self.base_url}/xiaozhi/device/unbind'
+        data = {'device_id': deviceId}
+        url = f'{self.base_url}/api/developers/unbind-device'
         return await self._make_request('POST', url, json=data)
 
-    async def list_device(self, agentId):
+    async def list_device(self):
         """设备列表"""
-        url = f'{self.base_url}/xiaozhi/device/bind/{agentId}'
+        url = f'{self.base_url}/api/developers/devices'
         return await self._make_request('GET', url)
 
 

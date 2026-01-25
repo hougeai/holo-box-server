@@ -1,10 +1,6 @@
-import jwt
 from fastapi import APIRouter, Query
 from tortoise.expressions import Q
-from datetime import datetime, timedelta, timezone
 from core.quota import quota_service
-from core.background import CTX_USER_ID
-from core.config import settings
 from core.xz_api import xz_service
 from controllers import device_controller
 from schemas.base import Fail, Success, SuccessExtra
@@ -25,15 +21,15 @@ async def list_device(
     page_size: int = Query(999, description='每页数量'),
     user_id: str = Query('', description='用户ID，用于搜索'),
     device_id: str = Query('', description='设备ID，用于搜索'),
-    chip_type: str = Query('', description='芯片类型，用于搜索'),
+    device_model: str = Query('', description='产品类型，用于搜索'),
 ):
     q = Q()
     if user_id:
         q &= Q(user_id=user_id)
     if device_id:
         q &= Q(device_id__contains=device_id)  # SQL: WHERE user_name LIKE '%xxx%'；user_name=user_name 精确匹配
-    if chip_type:
-        q &= Q(chip_type__contains=chip_type)
+    if device_model:
+        q &= Q(device_model__contains=device_model)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
     total, objs = await device_controller.list(page=page, page_size=page_size, search=q, order=['id'])
     data = [await obj.to_dict() for obj in objs]
@@ -44,7 +40,7 @@ async def list_device(
 async def create_device(
     obj_in: DeviceCreate,
 ):
-    obj = await device_controller.get_by_deviceid(device_id=obj_in.device_id)
+    obj = await device_controller.get_by_mac(device_id=obj_in.device_id)
     if obj:
         return Fail(code=400, msg='设备已存在')
 
@@ -93,49 +89,37 @@ async def unbind_device(
         device.user_id = None
         device.agent_id = None
         device.last_conversation = None
-        device.note = None
+        device.alias = None
         device.is_unbound = True
         await device.save()
         # 5. 给远端发请求
         result = await xz_service.unbind_device(deviceId=device.device_id)
-        if not result:
-            return Fail(code=400, msg='远端设备解绑失败')
+        if not result or not result['success']:
+            return Fail(code=400, msg=f'远端设备解绑失败：{result.get("message", "")}')
         return Success(msg='Deleted Successfully')
     else:
         return Fail(msg='Device not found')
 
 
-@router.post('/bind', summary='绑定设备')
+@router.post('/unbind', summary='绑定设备')
 async def bind_device(obj_in: DeviceBind):
-    user_id = CTX_USER_ID.get()
-    # 调用lx-api获取mac地址
-    res = await xz_service.bind_device(agentId=obj_in.agent_id, deviceCode=obj_in.code)
-    if not res:
-        return Fail(code=400, msg='设备绑定失败')
-    if res['code'] != 0:
-        return Fail(code=400, msg=res['msg'])
-    # 来自agent_id的所有设备
-    res = await xz_service.list_device(agentId=obj_in.agent_id)
-    if not res or not res['data']:
-        return Fail(code=400, msg='设备绑定失败')
-    macs = [item['macAddress'] for item in res['data']]
-    for mac in macs:
-        device = await device_controller.get_by_deviceid(mac)
-        if not device.user_id:
-            await device_controller.update(id=device.id, obj_in={'user_id': user_id, 'agent_id': obj_in.agent_id})
+    res = await xz_service.bind_device(agentId=obj_in.agent_id, verificationCode=obj_in.code)
+    if not res or not res['success']:
+        return Fail(code=400, msg=f'设备绑定失败: {res.get("message", "")}')
+    data = res['data']
+    device = await device_controller.get_by_mac(data.get('mac_address', ''))
+    await device_controller.update(
+        id=device.id,
+        obj_in={
+            'user_id': obj_in.user_id,
+            'agent_id': obj_in.agent_id,
+            'device_id': data.get('id', ''),
+            'auto_update': True if data.get('auto_update', False) else False,
+            'serial_number': data.get('serial_number', ''),
+        },
+    )
     # 更新agent中device_count
     obj = await Agent.filter(agent_id=obj_in.agent_id).first()
-    await obj.update_from_dict({'device_count': len(macs)})
+    await obj.update_from_dict({'device_count': obj.device_count + 1})
     await obj.save()
     return Success(msg='绑定成功')
-
-
-@router.get('/token', summary='获取设备鉴权Token')
-async def get_device_token(
-    device_id: str = Query(..., description='设备ID'),
-):
-    access_expire = datetime.now(timezone.utc) + timedelta(hours=24)
-    # 创建包含设备ID的token
-    payload = {'device_id': device_id, 'exp': access_expire}
-    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-    return Success(data={'token': token})
