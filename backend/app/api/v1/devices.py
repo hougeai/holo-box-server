@@ -81,6 +81,8 @@ async def unbind_device(
     # 首先获得device
     device = await device_controller.get(id=id)
     if device:
+        if not device.user_id:
+            return Fail(code=400, msg='设备已解绑')
         # 0. 更新agent的devcice_count
         agent = await Agent.filter(agent_id=device.agent_id).first()
         await agent.update_from_dict({'device_count': agent.device_count - 1})
