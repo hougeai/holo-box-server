@@ -18,6 +18,42 @@ def test_wxlogin():
     print(response.status_code, response.json())
 
 
+def test_ota():
+    import requests
+
+    headers = {
+        'Device-Id': '98:3d:ae:e6:83:d0',
+    }
+    data = {
+        'version': 2,
+        'language': 'zh-CN',
+        'flash_size': 16777216,
+        'minimum_free_heap_size': 8275968,
+        'mac_address': '98:3d:ae:e6:83:d0',
+        'uuid': 'aa4ad1e9-0299-4880-9b0d-b96ea0a2bf3e',
+        'chip_model_name': 'esp32s3',
+        'chip_info': {'model': 9, 'cores': 2, 'revision': 2, 'features': 18},
+        'application': {
+            'name': 'xiaozhi',
+            'version': '1.4.7.1',
+            'compile_time': 'Mar 18 2025T20:10:57Z',
+            'idf_version': 'v5.3.1',
+            'elf_sha256': 'c4c294b037cb5df2e17036d517f615c77fef1d05e627f64f9b3d9edcfbcc5050',
+        },
+        'board': {
+            'type': 'bread-compact-wifi',
+            'name': 'bread-compact-wifi',
+            'ssid': '12_404',
+            'rssi': -26,
+            'channel': 1,
+            'ip': '192.168.10.22',
+            'mac': '98:3d:ae:e6:83:d0',
+        },
+    }
+    response = requests.post('http://localhost:3004/ota', headers=headers, json=data)
+    print(response.json(), response.status_code)
+
+
 def test_oss():
     from core.minio import oss
 
@@ -53,7 +89,8 @@ async def test_profile():
 
 if __name__ == '__main__':
     # test_wxlogin()
-    test_oss()
+    # test_oss()
+    test_ota()
     # import asyncio
 
     # asyncio.run(test_xz())

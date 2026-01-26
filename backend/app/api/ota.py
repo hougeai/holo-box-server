@@ -1,3 +1,5 @@
+import os
+import json
 import aiohttp
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -47,6 +49,12 @@ async def ota(request: Request):
         logger.error(f'OTA转发失败: {e}')
         return Fail(code=400, msg=f'OTA转发失败: {e}')
 
+    # 增加形象视频
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    emoji_path = os.path.join(current_dir, '../0emoji.json')
+    with open(emoji_path, 'r', encoding='utf-8') as f:
+        emoji_data = json.load(f)
+    res_data['profile'] = emoji_data
     # 查询设备是否OTA，是否有新版本
     device = await device_controller.get_by_mac(mac_address)
     if device:
