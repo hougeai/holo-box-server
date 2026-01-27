@@ -82,7 +82,9 @@ async def test_wx():
 async def test_profile():
     from core.profile_api import bl_service
 
-    res = await bl_service.generate_video(img_url='http://1.95.14.72:9000/holo-box/aigc/2.png', emotion='happy')
+    # res = await bl_service.generate_video(img_url='http://1.95.14.72:9000/holo-box/aigc/2.png', emotion='happy')
+    # res = await bl_service.generate_image(img_url='http://1.95.14.72:9000/holo-box/aigc/2.png')
+    res = await bl_service.generate_image(img_url='https://image-zyhz.wentouzhiying.com/profile/img/13-ori-img.png')
     # res = await bl_service.get_video_status('1eae7bbe-8107-4818-914d-1981e9bbe16f')
     print(res)
 
@@ -90,9 +92,9 @@ async def test_profile():
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
-    test_ota()
-    # import asyncio
+    # test_ota()
+    import asyncio
 
     # asyncio.run(test_xz())
     # asyncio.run(test_wx())
-    # asyncio.run(test_profile())
+    asyncio.run(test_profile())

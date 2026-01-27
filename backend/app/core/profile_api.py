@@ -1,5 +1,7 @@
 import aiohttp
 import asyncio
+import io
+from PIL import Image
 from models.agent import Profile
 from .config import settings
 from .log import logger
@@ -46,8 +48,9 @@ class BailianService:
             async with aiohttp.ClientSession() as session:
                 async with session.request(method, url, headers=headers, **kwargs) as response:
                     if response.status != 200:
-                        logger.error(f'请求百炼失败: {response.status} {response.text}')
-                        return None, f'请求百炼失败: {response.status}'
+                        error_text = await response.text()
+                        logger.error(f'请求百炼失败: {response.status} {error_text}')
+                        return None, f'请求百炼失败: {error_text}'
                     data = await response.json()
                     logger.info(f'百炼返回: {data}')
                     return data, 'success'
@@ -74,6 +77,37 @@ class BailianService:
         except Exception as e:
             logger.error(f'下载文件失败: {e}')
             return None, None
+
+    def validate_image_size(self, img_bytes, min_dim=384, max_dim=5000):
+        """
+        验证图片尺寸是否满足百炼API要求
+        :param img_bytes: 图片字节数据
+        :param min_dim: 最小边尺寸要求
+        :param max_dim: 最大边尺寸要求
+        :return: (True, None)表示验证通过，(False, 错误信息)表示验证失败
+        """
+        try:
+            img = Image.open(io.BytesIO(img_bytes))
+            width, height = img.size
+            min_side = min(width, height)
+            max_side = max(width, height)
+            # 检查尺寸是否超出最大限制
+            if max_side > max_dim:
+                return (
+                    False,
+                    f'图片尺寸过大，最小边不小于{min_dim}px，最大边不超过{max_dim}px，当前图片为{width}x{height}',
+                )
+            # 检查尺寸是否满足最小要求
+            if min_side < min_dim:
+                return (
+                    False,
+                    f'图片尺寸过小，最小边不小于{min_dim}px，最大边不超过{max_dim}px，当前图片为{width}x{height}',
+                )
+            return True, None
+
+        except Exception as e:
+            logger.error(f'验证图片尺寸失败: {e}')
+            return False, f'图片格式错误或损坏: {str(e)}'
 
     async def generate_image(self, img_url):
         """

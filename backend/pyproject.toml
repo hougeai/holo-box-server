@@ -81,6 +81,7 @@ dependencies = [
     "alipay-sdk-python>=3.7.796",
     "paho-mqtt>=2.1.0",
     "esdk-obs-python>=3.25.8",
+    "pillow>=12.1.0",
 ]
 
 

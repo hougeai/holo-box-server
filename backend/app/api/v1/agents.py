@@ -222,6 +222,10 @@ async def upload_img(
     if obj:
         return Fail(code=400, msg=f'{name}已存在，请重新命名')
     ori_img = await ori_img.read()
+    # 验证图片尺寸
+    is_valid, error_msg = bl_service.validate_image_size(ori_img)
+    if not is_valid:
+        return Fail(code=400, msg=error_msg)
     # 创建profile栏位
     obj = await Profile.create(
         user_id=user_id,
