@@ -163,7 +163,7 @@ async def init_menus():
     children_menu = [
         Menu(
             menu_type=MenuType.MENU,
-            name='智能体模板管理',
+            name='智能体模板',
             path='agentTemplate',
             order=1,
             parent_id=parent_menu.id,
@@ -174,7 +174,7 @@ async def init_menus():
         ),
         Menu(
             menu_type=MenuType.MENU,
-            name='智能体管理',
+            name='用户智能体',
             path='agent',
             order=2,
             parent_id=parent_menu.id,

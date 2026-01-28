@@ -240,7 +240,8 @@ async def upload_img(
         name=name,
         status='pending',
     )
-    ori_img_key = f'profile/img/{obj.id}-ori-img.png'
+    suffix = hashlib.sha256(f'{obj.id}-ori'.encode()).hexdigest()[:4]
+    ori_img_key = f'profile/img/{obj.id}-ori-img-{suffix}.png'
     result = await oss.upload_file_async(ori_img_key, file_data=ori_img)
     if not result:
         await profile_controller.remove(id=obj.id)
@@ -255,7 +256,8 @@ async def upload_img(
             await profile_controller.remove(id=obj.id)
             return Fail(code=400, msg=f'生成形象图片失败: {msg}')
         # 下载百炼生成的图片并上传到 oss
-        gen_img_key = f'profile/img/{obj.id}-gen-img.png'
+        suffix = hashlib.sha256(f'{obj.id}-gen'.encode()).hexdigest()[:4]
+        gen_img_key = f'profile/img/{obj.id}-gen-img-{suffix}.png'
         gen_img_data, content_type = await bl_service.download_file(gen_img_url, 'image/png')
         if not gen_img_data:
             logger.error('下载生成图片失败')
@@ -310,7 +312,8 @@ async def upload_vid(
     emotion: str = Form(..., description='情绪'),
     video: UploadFile = File(...),
 ):
-    video_key = f'profile/vid/{id}-{emotion}.mp4'
+    suffix = hashlib.sha256(f'{id}-{emotion}'.encode()).hexdigest()[:4]
+    video_key = f'profile/vid/{id}-{emotion}-{suffix}.mp4'
     video_data = await video.read()
     upload_result = await oss.upload_file_async(
         video_key,

@@ -62,15 +62,15 @@ const aigcForm = ref({
 // 情绪列表
 const emotions = [
   { key: 'happy', label: '开心' },
-  { key: 'sad', label: '悲伤' },
-  { key: 'angry', label: '愤怒' },
-  { key: 'love', label: '爱意' },
-  { key: 'surprised', label: '惊讶' },
-  { key: 'shocked', label: '震惊' },
-  { key: 'neutral', label: '自然' },
-  { key: 'calm', label: '平静' },
-  { key: 'playful', label: '顽皮' },
-  { key: 'embarrassed', label: '害羞' },
+  { key: 'laugh', label: '大笑' },
+  { key: 'sad', label: '伤心' },
+  { key: 'angry', label: '生气' },
+  { key: 'love', label: '喜欢' },
+  { key: 'embarrassed', label: '尴尬' },
+  { key: 'thinking', label: '思考' },
+  { key: 'playful', label: '调皮' },
+  { key: 'calm', label: '放松' },
+  { key: 'sleepy', label: '困倦' },
 ]
 
 // 轮询定时器
@@ -629,7 +629,7 @@ const columns = [
     >
       <NTabs v-model:value="activeTab" type="line">
         <!-- 用户上传 Tab -->
-        <NTabPane name="upload" tab="用户上传">
+        <NTabPane name="upload" tab="手动上传">
           <NSpin :show="uploadForm.uploadingImg">
             <NFormItem label="形象名称">
               <NInput

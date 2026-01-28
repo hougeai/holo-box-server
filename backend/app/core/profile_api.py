@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import hashlib
 import io
 from PIL import Image
 from models.agent import Profile
@@ -228,7 +229,8 @@ class BailianService:
             # 下载视频并上传到 OSS
             for emotion, info in results.items():
                 if info['status'] == 'success' and info['url']:
-                    video_key = f'profile/vid/{profile_id}-{emotion}.mp4'
+                    suffix = hashlib.sha256(f'{profile_id}-{emotion}'.encode()).hexdigest()[:4]
+                    video_key = f'profile/vid/{profile_id}-{emotion}-{suffix}.mp4'
                     video_data, content_type = await self.download_file(info['url'], 'video/mp4')
                     if video_data:
                         upload_result = await oss.upload_file_async(
