@@ -1,4 +1,5 @@
 import hashlib
+from typing import Optional
 from fastapi import APIRouter, Query
 from fastapi import File, UploadFile, Form
 from tortoise.expressions import Q
@@ -17,6 +18,7 @@ from schemas.agent import (
     AgentTemplateUpdate,
     ProfileVidGen,
     ProfileUpdate,
+    VoiceUpdate,
 )
 from models.agent import Agent, AgentTemplate, Voice, LLM, Profile
 
@@ -108,14 +110,20 @@ async def delete_agent(
 async def list_voice(
     page: int = Query(1, description='页码'),
     page_size: int = Query(999, description='每页数量'),
-    user_id: str = Query('', description='用户ID，用于搜索'),
-    voice_id: str = Query('', description='音色ID，用于搜索'),
+    user_id: Optional[str] = Query(None, description='用户ID，用于搜索'),
+    voice_id: Optional[str] = Query(None, description='音色ID，用于搜索'),
+    language: Optional[str] = Query(None, description='语言，用于搜索'),
+    public: Optional[bool] = Query(None, description='是否公开，用户前端传入true'),
 ):
     q = Q()
     if user_id:
         q &= Q(user_id=user_id)
     if voice_id:
         q &= Q(voice_id=voice_id)
+    if language:
+        q &= Q(language=language)
+    if public is not None:
+        q &= Q(public=public)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
     total, objs = await voice_controller.list(page=page, page_size=page_size, search=q, order=['id'])
     data = [await obj.to_dict() for obj in objs]
@@ -198,8 +206,8 @@ async def delete_agent_template(
 async def list_profile(
     page: int = Query(1, description='页码'),
     page_size: int = Query(999, description='每页数量'),
-    user_id: str = Query('', description='用户ID，用于搜索'),
-    public: bool = Query(None, description='是否公开的形象'),
+    user_id: Optional[str] = Query(None, description='用户ID，用于搜索'),
+    public: Optional[bool] = Query(None, description='是否公开的形象，用户前端传入true'),
 ):
     q = Q()
     if user_id:
@@ -416,27 +424,12 @@ async def clone_voice(
 
 
 @router.post('/voice/update', summary='更新音色')
-async def update_voice(
-    id: str = Form(..., description='音色ID'),
-    name: str = Form(None, description='音色名称'),
-    language: str = Form(None, description='语言'),
-    gender: str = Form(None, description='性别'),
-):
-    voice = await Voice.get(id=id)
-    if name is not None:
-        voice.tts_voice_name = name
-        await xz_service.clone_voice(voice.tts_voice_id, ref_audio=None, name=name)
-
-    if language is not None or gender is not None:
-        tags = voice.tags or {}
-        if language is not None:
-            tags['languages'] = [language]
-        if gender is not None:
-            tags['gender'] = gender
-        voice.tags = tags
-
-    await voice.save()
-    data = await voice.to_dict(exclude_fields=['update_at'])
+async def update_voice(obj_in: VoiceUpdate):
+    voice = await Voice.get(id=obj_in.id)
+    if not voice:
+        return Fail(400, msg='音色不存在')
+    obj = await voice_controller.update(id=obj_in.id, obj_in=obj_in)
+    data = await obj.to_dict(exclude_fields=['update_at'])
     return Success(data=data)
 
 

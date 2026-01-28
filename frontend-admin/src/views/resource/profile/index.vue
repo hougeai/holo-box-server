@@ -89,7 +89,7 @@ const {
   name: 'Profile',
   initForm: {
     user_id: userStore.userId,
-    public: false,
+    public: null,
   },
   doUpdate: api.updateProfile,
   doDelete: api.deleteProfile,
@@ -368,6 +368,13 @@ onMounted(() => {
   $table.value?.handleSearch()
 })
 
+// 是否公开选项
+const publicOptions = [
+  { label: '全部', value: null },
+  { label: '是', value: true },
+  { label: '否', value: false },
+]
+
 const columns = [
   {
     title: 'ID',
@@ -487,7 +494,7 @@ const columns = [
       return h(
         NTag,
         { type: row.method === 'bailian' ? 'success' : 'default' },
-        { default: () => row.method },
+        { default: () => row.method || '-' },
       )
     },
   },
@@ -600,13 +607,13 @@ const columns = [
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
-        <QueryBarItem label="形象名称" :label-width="60">
-          <NInput
-            v-model:value="queryItems.name"
+        <QueryBarItem label="是否公开" :label-width="60" :content-width="140">
+          <NSelect
+            v-model:value="queryItems.public"
+            :options="publicOptions"
             clearable
-            type="text"
-            placeholder="请输入形象名称"
-            @keypress.enter="$table?.handleSearch()"
+            placeholder="请选择"
+            @update:value="$table?.handleSearch()"
           />
         </QueryBarItem>
       </template>

@@ -78,7 +78,7 @@ class LLMUpdate(LLMCreate):
 class VoiceCreate(BaseModel):
     user_id: str = Field(description='用户ID')
     language: Optional[str] = Field(default=None, description='语言')
-    voice_id: str = Field(description='语音ID')
+    voice_id: Optional[str] = Field(default=None, description='语音ID')
     voice_name: Optional[str] = Field(default=None, description='语音名称')
     voice_demo: Optional[str] = Field(default=None, description='语音示例')
     avatar: Optional[str] = Field(default=None, description='头像')

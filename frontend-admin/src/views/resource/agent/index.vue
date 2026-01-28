@@ -79,7 +79,7 @@ const fetchLlmList = async () => {
 // 获取Voice列表
 const fetchVoiceList = async () => {
   try {
-    const res = await api.getVoiceList()
+    const res = await api.getVoiceList({ public: true })
     if (res.data) {
       voiceList.value = res.data
     }

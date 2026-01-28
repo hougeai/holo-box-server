@@ -1,6 +1,6 @@
 <script setup>
 import { h, onMounted, ref } from 'vue'
-import { NButton, NInput, NTag } from 'naive-ui'
+import { NButton, NInput, NTag, NSelect, NSwitch } from 'naive-ui'
 
 import { formatDateTime, languageMap } from '@/utils'
 import api from '@/api'
@@ -8,7 +8,25 @@ import api from '@/api'
 defineOptions({ name: '音色管理' })
 
 const $table = ref(null) // 只是说明这是一个特殊的实例
-const queryItems = ref({})
+const queryItems = ref({
+  user_id: null,
+  voice_id: null,
+  public: null,
+  language: null,
+})
+
+// 是否公开选项
+const publicOptions = [
+  { label: '全部', value: null },
+  { label: '是', value: true },
+  { label: '否', value: false },
+]
+
+// 语言选项
+const languageOptions = [
+  { label: '全部', value: null },
+  ...Object.entries(languageMap).map(([key, label]) => ({ label, value: key })),
+]
 
 onMounted(() => {
   $table.value?.handleSearch()
@@ -67,6 +85,34 @@ const columns = [
     },
   },
   {
+    title: '是否公开',
+    key: 'public',
+    width: 30,
+    align: 'center',
+    render(row) {
+      return h(NSwitch, {
+        value: row.public,
+        onUpdateValue: async (value) => {
+          try {
+            const res = await api.updateVoice({
+              id: row.id,
+              public: value,
+            })
+            if (res.code === 200) {
+              $message.success('更新成功')
+              $table.value?.handleSearch()
+            } else {
+              $message.error(res.msg || '更新失败')
+            }
+          } catch (error) {
+            console.error(error)
+            $message.error('更新失败')
+          }
+        },
+      })
+    },
+  },
+  {
     title: '创建时间',
     key: 'create_at',
     width: 60,
@@ -95,7 +141,7 @@ const columns = [
       :get-data="api.getVoiceList"
     >
       <template #queryBar>
-        <QueryBarItem label="用户ID" :label-width="60">
+        <QueryBarItem label="用户ID" :label-width="60" :content-width="140">
           <NInput
             v-model:value="queryItems.user_id"
             clearable
@@ -104,13 +150,31 @@ const columns = [
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
-        <QueryBarItem label="音色ID" :label-width="60">
+        <QueryBarItem label="音色ID" :label-width="60" :content-width="140">
           <NInput
             v-model:value="queryItems.voice_id"
             clearable
             type="text"
             placeholder="请输入音色ID"
             @keypress.enter="$table?.handleSearch()"
+          />
+        </QueryBarItem>
+        <QueryBarItem label="是否公开" :label-width="60" :content-width="140">
+          <NSelect
+            v-model:value="queryItems.public"
+            :options="publicOptions"
+            clearable
+            placeholder="请选择"
+            @update:value="$table?.handleSearch()"
+          />
+        </QueryBarItem>
+        <QueryBarItem label="语言" :label-width="40" :content-width="140">
+          <NSelect
+            v-model:value="queryItems.language"
+            :options="languageOptions"
+            clearable
+            placeholder="请选择"
+            @update:value="$table?.handleSearch()"
           />
         </QueryBarItem>
       </template>

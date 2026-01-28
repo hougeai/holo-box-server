@@ -33,6 +33,7 @@ export default {
   deleteAgent: (params = {}) => request.delete('/agent/delete', { params }),
   getVoiceList: (params = {}) => request.get('/agent/voice/list', { params }),
   getLlmList: () => request.get('/agent/llm/list'),
+  updateVoice: (data = {}) => request.post('/agent/voice/update', data),
   // resource-agentTemplate
   getAgentTemplateList: (params = {}) => request.get('/agent/template/list', { params }),
   createAgentTemplate: (data = {}) => request.post('/agent/template/create', data),
