@@ -48,6 +48,15 @@ def test_device():
     print(response.json())
 
 
+def test_agentTemplate():
+    params = {'page': 1, 'pageSize': 100}
+    response = client.get('/api/developers/agent-templates/list', params=params, headers=headers)
+    print(response.status_code)
+    with open('0template.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
+
+
 if __name__ == '__main__':
     # get_token()
-    test_device()
+    # test_device()
+    test_agentTemplate()

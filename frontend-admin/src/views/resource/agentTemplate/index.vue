@@ -333,7 +333,7 @@ const columns = [
   {
     title: '创建时间',
     key: 'create_at',
-    width: 30,
+    width: 40,
     align: 'center',
     ellipsis: { tooltip: true },
     render(row) {

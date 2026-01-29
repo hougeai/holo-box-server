@@ -373,9 +373,19 @@ async def init_ota():
 
 
 async def init_agent_template():
-    obj = await AgentTemplate.exists()
-    if not obj:
-        agents = await xz_service.list_agent_template()
+    agents = await xz_service.list_agent_template()
+    api_agent_ids = {agent.get('id') for agent in agents}
+
+    existing_agents = await AgentTemplate.all()
+    existing_ids = {int(agent.agent_id) for agent in existing_agents}
+    # 需要删除的：在数据库中但不在API中
+    to_delete_ids = existing_ids - api_agent_ids
+    if to_delete_ids:
+        await AgentTemplate.filter(agent_id__in=to_delete_ids).delete()
+
+    # 需要创建的：在API中但不在数据库中
+    to_create_ids = api_agent_ids - existing_ids
+    if to_create_ids:
         objs = [
             AgentTemplate(
                 user_id='1',
@@ -392,11 +402,23 @@ async def init_agent_template():
                 tts_pitch=agent.get('tts_pitch'),
             )
             for agent in agents
+            if agent.get('id') in to_create_ids
         ]
         await AgentTemplate.bulk_create(objs)
 
 
 async def init_agent():
+    agents = await xz_service.list_agent()
+    api_agent_ids = {agent.get('id') for agent in agents}
+
+    existing_agents = await Agent.all()
+    existing_ids = {int(agent.agent_id) for agent in existing_agents}
+
+    # 需要删除的：在数据库中但不在API中
+    to_delete_ids = existing_ids - api_agent_ids
+    if to_delete_ids:
+        await Agent.filter(agent_id__in=to_delete_ids).delete()
+
     obj = await Agent.exists()
     if not obj:
         agents = await xz_service.list_agent()
