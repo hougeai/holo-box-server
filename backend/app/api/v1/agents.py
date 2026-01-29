@@ -79,10 +79,14 @@ async def update_agent(
     obj = await agent_controller.get(id=obj_in.id)
     if not obj:
         return Fail(code=400, msg='Agent not found')
-    # 先更新远端的
-    res = await xz_service.update_agent(obj.agent_id, obj_in)
-    if not res or not res['success']:
-        return Fail(code=400, msg='XZ-API更新失败')
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
+    local_only_fields = {'avatar', 'profile_id'}
+    has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
+    # 如果有需要远程更新的字段，则调用远端服务
+    if has_remote_fields:
+        res = await xz_service.update_agent(obj.agent_id, obj_in)
+        if not res or not res['success']:
+            return Fail(code=400, msg='XZ-API更新失败')
     obj = await agent_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -142,11 +146,14 @@ async def list_llm():
 async def list_agent_template(
     page: int = Query(1, description='页码'),
     page_size: int = Query(999, description='每页数量'),
-    agent_name: str = Query('', description='智能体模板名称，用于搜索'),
+    agent_name: Optional[str] = Query('', description='智能体模板名称，用于搜索'),
+    public: Optional[bool] = Query(None, description='是否公开，用户前端传入true'),
 ):
     q = Q()
     if agent_name:
         q &= Q(agent_name_contains=agent_name)
+    if public is not None:
+        q &= Q(public=public)
     total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
@@ -177,10 +184,14 @@ async def update_agent_template(
     obj = await agent_template_controller.get(id=obj_in.id)
     if not obj:
         return Fail(code=400, msg='AgentTemplate not found')
-    # 先更新远端的
-    res = await xz_service.update_agent_template(obj.agent_id, obj_in)
-    if not res or not res['success']:
-        return Fail(code=400, msg='XZ-API更新失败')
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
+    local_only_fields = {'avatar', 'profile_id', 'public'}
+    has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
+    # 如果有需要远程更新的字段，则调用远端服务
+    if has_remote_fields:
+        res = await xz_service.update_agent_template(obj.agent_id, obj_in)
+        if not res or not res['success']:
+            return Fail(code=400, msg='XZ-API更新失败')
     obj = await agent_template_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)

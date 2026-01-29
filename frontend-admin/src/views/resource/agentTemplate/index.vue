@@ -1,6 +1,6 @@
 <script setup>
 import { h, onMounted, ref, resolveDirective, withDirectives, computed, watch } from 'vue'
-import { NButton, NInput, NPopconfirm, NSelect, NFormItem } from 'naive-ui'
+import { NButton, NInput, NPopconfirm, NSelect, NFormItem, NSwitch } from 'naive-ui'
 
 import { formatDate, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
 import { useCRUD } from '@/composables'
@@ -37,6 +37,7 @@ const {
     memory_type: 'SHORT_TERM',
     profile_id: null,
     avatar: '',
+    public: null,
   },
   doCreate: api.createAgentTemplate,
   doUpdate: api.updateAgentTemplate,
@@ -180,6 +181,13 @@ const renderVoiceLabel = (option) => {
   )
 }
 
+// 是否公开选项
+const publicOptions = [
+  { label: '全部', value: null },
+  { label: '是', value: true },
+  { label: '否', value: false },
+]
+
 // 语言选项
 const languageOptions = computed(() => {
   return Object.entries(languageMap).map(([value, label]) => ({ label, value }))
@@ -295,6 +303,34 @@ const columns = [
     },
   },
   {
+    title: '是否公开',
+    key: 'public',
+    width: 30,
+    align: 'center',
+    render(row) {
+      return h(NSwitch, {
+        value: row.public,
+        onUpdateValue: async (value) => {
+          try {
+            const res = await api.updateAgentTemplate({
+              id: row.id,
+              public: value,
+            })
+            if (res.code === 200) {
+              $message.success('更新成功')
+              $table.value?.handleSearch()
+            } else {
+              $message.error(res.msg || '更新失败')
+            }
+          } catch (error) {
+            console.error(error)
+            $message.error('更新失败')
+          }
+        },
+      })
+    },
+  },
+  {
     title: '创建时间',
     key: 'create_at',
     width: 30,
@@ -388,6 +424,15 @@ const columns = [
             type="text"
             placeholder="请输入智能体模板名称"
             @keypress.enter="$table?.handleSearch()"
+          />
+        </QueryBarItem>
+        <QueryBarItem label="是否公开" :label-width="60" :content-width="140">
+          <NSelect
+            v-model:value="queryItems.public"
+            :options="publicOptions"
+            clearable
+            placeholder="请选择"
+            @update:value="$table?.handleSearch()"
           />
         </QueryBarItem>
       </template>

@@ -19,11 +19,13 @@ class AgentTemplateCreate(BaseModel):
     tts_pitch: Optional[int] = Field(default=None, description='TTS音调')
     avatar: Optional[str] = Field(default=None, description='头像')
     profile_id: Optional[int] = Field(default=None, description='形象ID')
+    public: Optional[bool] = Field(default=False, description='是否公开')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
     id: int = Field(description='ID')
     agent_name: Optional[str] = Field(default=None, description='智能体名称')
+    public: Optional[bool] = Field(default=None, description='是否公开')
 
 
 # ========== Agent ==========
@@ -102,7 +104,7 @@ class ProfileCreate(BaseModel):
     ori_img: Optional[str] = Field(default=None, description='原始上传图片')
     gen_img: Optional[str] = Field(default=None, description='生成形象图片')
     gen_vids: Optional[dict] = Field(default=None, description='生成形象视频，emotion-url 字典')
-    public: Optional[bool] = Field(default=False, description='是否公开')
+    public: Optional[bool] = Field(default=None, description='是否公开')
     method: Optional[str] = Field(default=None, description='生成方式，支持 bailian')
     status: Optional[str] = Field(default=None, description='形象状态')
 

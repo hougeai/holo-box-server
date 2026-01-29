@@ -17,6 +17,7 @@ class AgentTemplate(BaseModel, TimestampMixin):
     tts_pitch = fields.IntField(default=0, null=True, description='TTS音调')
     avatar = fields.TextField(null=True, description='头像')
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
+    public = fields.BooleanField(default=False, null=True, description='是否公开')
 
 
 # agent表
