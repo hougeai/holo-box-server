@@ -238,9 +238,11 @@ class BailianService:
                         )
                         if upload_result:
                             info['url'] = f'{settings.OSS_BUCKET_URL}/{video_key}'
+                            info['hash'] = hashlib.sha256(video_data).hexdigest()
                         else:
                             logger.error(f'视频上传失败: {emotion}')
-                            info['url'] = None
+                            info['url'] = ''
+                            info['hash'] = ''
                             info['status'] = 'failed'
                             info['msg'] = '上传到OSS失败'
             profile.gen_vids = results

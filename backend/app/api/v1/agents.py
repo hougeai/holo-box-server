@@ -154,7 +154,7 @@ async def list_agent_template(
         q &= Q(agent_name_contains=agent_name)
     if public is not None:
         q &= Q(public=public)
-    total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
@@ -225,7 +225,7 @@ async def list_profile(
         q &= Q(user_id=user_id)
     if public is not None:
         q &= Q(public=public)
-    total, objs = await profile_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    total, objs = await profile_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
@@ -306,6 +306,34 @@ async def generate_vid(
         return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
 
 
+@router.post('/profile/generate-vid-edit', summary='编辑模式下生成替换视频，轮询等待返回')
+async def generate_vid_edit(
+    obj_in: ProfileVidGen,
+):
+    obj = await Profile.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='请先创建形象第一步获取形象id')
+    # 根据不同方法创建形象
+    if obj_in.method == 'bailian':
+        video_url, msg = await bl_service.generate_video(obj.gen_img, emotion=obj_in.emotion)
+        if not video_url:
+            logger.error(f'生成形象视频失败: {msg}')
+            return Fail(code=400, msg=f'生成形象视频失败: {msg}')
+        # 下载百炼生成的视频并上传到 oss
+        suffix = hashlib.sha256(f'{obj_in.id}-{obj_in.emotion}'.encode()).hexdigest()[:4]
+        video_key = f'profile/vid/{obj_in.id}-{obj_in.emotion}-{suffix}.mp4'
+        video_data, content_type = await bl_service.download_file(video_url, 'video/mp4')
+        result = await oss.upload_file_async(video_key, file_data=video_data, content_type=content_type)
+        if not result:
+            logger.error('上传生成视频失败')
+            return Fail(code=400, msg='上传生成视频失败')
+        video_url = f'{settings.OSS_BUCKET_URL}/{video_key}'
+        video_hash = hashlib.sha256(video_data).hexdigest()
+        return Success(data={'video_url': video_url, 'video_hash': video_hash})
+    else:
+        return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
+
+
 @router.get('/profile/', summary='查询形象详情，包括形象生成状态等')
 async def get_profile(
     id: int = Query(..., description='ID'),
@@ -334,7 +362,9 @@ async def upload_vid(
     if not upload_result:
         return Fail(code=400, msg='上传视频文件失败')
     video_url = f'{settings.OSS_BUCKET_URL}/{video_key}'
-    return Success(data={'video_url': video_url})
+    # 计算视频文件的hash值，用于检测文件是否被覆盖
+    video_hash = hashlib.sha256(video_data).hexdigest()
+    return Success(data={'video_url': video_url, 'video_hash': video_hash})
 
 
 @router.post('/profile/update', summary='手动创建形象(上传视频url)/更新形象')
@@ -344,6 +374,12 @@ async def update_profile(
     obj = await Profile.get(id=obj_in.id)
     if not obj:
         return Fail(code=400, msg='形象未创建')
+
+    # 判断gen_vids是否完整，如果10个情绪的url都有值，则设置status为success
+    if obj_in.gen_vids:
+        valid_urls = [info.get('url') for info in obj_in.gen_vids.values() if info.get('url')]
+        if len(valid_urls) == 10:
+            obj_in.status = 'success'
     obj = await profile_controller.update(id=obj.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)

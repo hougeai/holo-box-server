@@ -15,6 +15,7 @@ import {
   NDivider,
   NSpin,
   NSwitch,
+  NForm,
 } from 'naive-ui'
 import TheIcon from '@/components/icon/TheIcon.vue'
 
@@ -30,6 +31,17 @@ const queryItems = ref({})
 const vPermission = resolveDirective('permission')
 const userStore = useUserStore()
 
+// 图片预览状态
+const imagePreviewVisible = ref(false)
+const imagePreviewUrl = ref('')
+const imagePreviewTitle = ref('')
+
+const handleImagePreview = (url, title) => {
+  imagePreviewUrl.value = url
+  imagePreviewTitle.value = title
+  imagePreviewVisible.value = true
+}
+
 // 创建形象对话框
 const createModalVisible = ref(false)
 const activeTab = ref('upload')
@@ -42,6 +54,7 @@ const uploadForm = ref({
   profileId: null,
   oriImgUrl: null,
   oriImgFile: null,
+  genImgUrl: null,
   uploadedVideos: {},
   selectedVideos: {},
 })
@@ -86,10 +99,11 @@ const {
   handleEdit,
   handleDelete,
 } = useCRUD({
-  name: 'Profile',
+  name: '形象',
   initForm: {
     user_id: userStore.userId,
     public: null,
+    gen_vids: {},
   },
   doUpdate: api.updateProfile,
   doDelete: api.deleteProfile,
@@ -153,7 +167,7 @@ const handleUploadOriImg = async () => {
   const formData = new FormData()
   formData.append('name', uploadForm.value.name)
   formData.append('ori_img', uploadForm.value.oriImgFile)
-  formData.append('ret_gen_img', 'false')
+  formData.append('ret_gen_img', true)
 
   try {
     uploadForm.value.uploadingImg = true
@@ -161,6 +175,7 @@ const handleUploadOriImg = async () => {
     if (res.code === 200) {
       uploadForm.value.profileId = res.data.id
       uploadForm.value.oriImgUrl = res.data.ori_img
+      uploadForm.value.genImgUrl = res.data.gen_img
       $message.success('原始图片上传成功，请上传情绪视频')
     } else {
       $message.error(res.msg || '上传失败')
@@ -212,6 +227,7 @@ const handleUploadAllVideos = async () => {
         if (res.code === 200) {
           uploadForm.value.uploadedVideos[emotion.key] = {
             url: res.data.video_url,
+            hash: res.data.video_hash,
             status: 'success',
             msg: '',
           }
@@ -219,6 +235,7 @@ const handleUploadAllVideos = async () => {
         } else {
           uploadForm.value.uploadedVideos[emotion.key] = {
             url: '',
+            hash: '',
             status: 'failed',
             msg: res.msg || '上传失败',
           }
@@ -277,7 +294,7 @@ const handleAIGCUploadOriImg = async () => {
   const formData = new FormData()
   formData.append('name', aigcForm.value.name)
   formData.append('ori_img', aigcForm.value.oriImgFile)
-  formData.append('ret_gen_img', 'true')
+  formData.append('ret_gen_img', true)
 
   try {
     aigcForm.value.uploadingImg = true
@@ -355,6 +372,77 @@ const startPolling = () => {
       console.error('轮询失败:', e)
     }
   }, 10000)
+}
+
+// 编辑模式
+const editVideoUping = ref({})
+const editVideoGening = ref({})
+// 编辑模式：上传视频
+const handleEditVideoUpload = async (emotion, fileList) => {
+  const file = fileList?.fileList?.[fileList.fileList.length - 1]?.file
+  if (!file) return
+
+  editVideoUping.value[emotion] = true
+  const formData = new FormData()
+  formData.append('id', modalForm.value.id)
+  formData.append('emotion', emotion)
+  formData.append('video', file)
+
+  try {
+    const res = await api.profileUploadVid(formData)
+    if (res.code === 200) {
+      if (!modalForm.value.gen_vids) {
+        modalForm.value.gen_vids = {}
+      }
+      modalForm.value.gen_vids[emotion] = {
+        url: res.data.video_url,
+        hash: res.data.video_hash,
+        status: 'success',
+        msg: '',
+      }
+      $message.success(`${emotions.find((e) => e.key === emotion).label}视频更新成功`)
+    } else {
+      $message.error(res.msg || '视频上传失败')
+    }
+  } catch (error) {
+    console.error(error)
+    $message.error('视频上传失败')
+  } finally {
+    editVideoUping.value[emotion] = false
+  }
+}
+
+// 编辑模式：生成视频
+const handleGenerateVideo = async (emotion) => {
+  editVideoGening.value[emotion] = true
+
+  try {
+    const res = await api.profileGenerateVidEdit({
+      id: modalForm.value.id,
+      method: 'bailian',
+      emotion: emotion,
+    })
+
+    if (res.code === 200) {
+      if (!modalForm.value.gen_vids) {
+        modalForm.value.gen_vids = {}
+      }
+      modalForm.value.gen_vids[emotion] = {
+        url: res.data.video_url,
+        hash: res.data.video_hash,
+        status: 'success',
+        msg: '',
+      }
+      $message.success(`${emotions.find((e) => e.key === emotion).label}视频生成成功`)
+    } else {
+      $message.error(res.msg || '视频生成失败')
+    }
+  } catch (error) {
+    console.error(error)
+    $message.error('视频生成失败')
+  } finally {
+    editVideoGening.value[emotion] = false
+  }
 }
 
 // 组件卸载时清除定时器
@@ -639,29 +727,43 @@ const columns = [
               />
             </NFormItem>
             <NFormItem label="原始图片">
-              <div class="img-preview-wrapper">
-                <img v-if="uploadForm.oriImgUrl" :src="uploadForm.oriImgUrl" class="w-80 h-80" />
-                <div v-else class="img-placeholder">暂无图片</div>
-                <div class="upload-actions">
-                  <NUpload
-                    :show-file-list="false"
-                    :disabled="!!uploadForm.profileId || uploadForm.uploadingImg"
-                    accept="image/*"
-                    :on-change="handleSelectOriImg"
-                  >
-                    <NButton :disabled="!!uploadForm.profileId || uploadForm.uploadingImg">
-                      <TheIcon icon="material-symbols:upload" :size="16" class="mr-5" />选择图片
-                    </NButton>
-                  </NUpload>
-                  <NButton
-                    v-if="uploadForm.oriImgFile && !uploadForm.profileId"
-                    type="primary"
-                    :disabled="uploadForm.uploadingImg"
-                    :loading="uploadForm.uploadingImg"
-                    @click="handleUploadOriImg"
-                  >
-                    上传
-                  </NButton>
+              <div class="flex gap-4 items-start">
+                <div class="flex flex-col items-center">
+                  <div class="img-preview-wrapper">
+                    <img
+                      v-if="uploadForm.oriImgUrl"
+                      :src="uploadForm.oriImgUrl"
+                      class="w-80 h-80"
+                    />
+                    <div v-else class="img-placeholder">暂无图片</div>
+                    <div class="upload-actions mt-2">
+                      <NUpload
+                        :show-file-list="false"
+                        :disabled="!!uploadForm.profileId || uploadForm.uploadingImg"
+                        accept="image/*"
+                        :on-change="handleSelectOriImg"
+                      >
+                        <NButton :disabled="!!uploadForm.profileId || uploadForm.uploadingImg">
+                          <TheIcon icon="material-symbols:upload" :size="16" class="mr-5" />选择图片
+                        </NButton>
+                      </NUpload>
+                      <NButton
+                        v-if="uploadForm.oriImgFile && !uploadForm.profileId"
+                        type="primary"
+                        :disabled="uploadForm.uploadingImg"
+                        :loading="uploadForm.uploadingImg"
+                        @click="handleUploadOriImg"
+                      >
+                        上传
+                      </NButton>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="uploadForm.genImgUrl" class="flex flex-col items-center">
+                  <div class="img-preview-wrapper">
+                    <img :src="uploadForm.genImgUrl" class="w-80 h-80" />
+                  </div>
                 </div>
               </div>
             </NFormItem>
@@ -679,7 +781,7 @@ const columns = [
                 <div class="w-full text-center font-medium mb-2">{{ emotion.label }}</div>
                 <NUpload
                   :show-file-list="false"
-                  accept="video/*"
+                  accept="video/mp4"
                   :on-change="(fileList) => handleSelectVideo(fileList, emotion.key)"
                   class="w-full"
                 >
@@ -791,12 +893,13 @@ const columns = [
       :title="modalTitle"
       :loading="modalLoading"
       @save="handleSave"
+      width="60%"
     >
       <NForm
         ref="modalFormRef"
         label-placement="left"
         label-align="left"
-        :label-width="110"
+        :label-width="100"
         :model="modalForm"
       >
         <NFormItem
@@ -808,13 +911,94 @@ const columns = [
             trigger: ['input', 'blur'],
           }"
         >
-          <NInput v-model:value="modalForm.name" placeholder="请输入形象名称" />
+          <NInput
+            v-model:value="modalForm.name"
+            placeholder="请输入形象名称"
+            style="width: 140px"
+          />
         </NFormItem>
-        <NFormItem label="是否公开">
-          <NSwitch v-model:value="modalForm.public" />
+        <NFormItem label="图片预览">
+          <div class="flex gap-8 items-start">
+            <div class="flex flex-col items-center">
+              <div
+                class="img-preview-wrapper cursor-pointer"
+                @click="modalForm.ori_img && handleImagePreview(modalForm.ori_img, '原始图片')"
+              >
+                <img v-if="modalForm.ori_img" :src="modalForm.ori_img" class="w-80 h-80" />
+                <div v-else class="img-placeholder">暂无原始图片</div>
+              </div>
+              <div class="mt-2 text-gray-600">原始图片</div>
+            </div>
+
+            <div class="flex flex-col items-center">
+              <div
+                class="img-preview-wrapper cursor-pointer"
+                @click="modalForm.gen_img && handleImagePreview(modalForm.gen_img, '生成图片')"
+              >
+                <img v-if="modalForm.gen_img" :src="modalForm.gen_img" class="w-80 h-80" />
+                <div v-else class="img-placeholder">暂无生成图片</div>
+              </div>
+              <div class="mt-2 text-gray-600">生成图片</div>
+            </div>
+          </div>
         </NFormItem>
+        <div class="text-center font-bold mb-4">形象视频</div>
+        <div v-if="modalForm.id" class="grid grid-cols-5 gap-4 w-full">
+          <div
+            v-for="emotion in emotions"
+            :key="emotion.key"
+            class="flex flex-col items-center gap-2"
+          >
+            <NTag type="info">{{ emotion.label }}</NTag>
+            <div
+              class="flex items-center justify-center w-full h-150 border-dashed border-gray-300 rounded"
+            >
+              <video
+                v-if="modalForm.gen_vids?.[emotion.key]?.url"
+                :src="modalForm.gen_vids[emotion.key].url"
+                :key="modalForm.gen_vids[emotion.key].hash"
+                class="max-h-full max-w-full rounded"
+                controls
+              />
+              <span v-else class="text-gray-400">暂无视频</span>
+            </div>
+            <div class="flex justify-center gap-4 mt-3">
+              <NUpload
+                :show-file-list="false"
+                accept="video/mp4"
+                :on-change="(fileList) => handleEditVideoUpload(emotion.key, fileList)"
+              >
+                <NButton size="small" type="primary" :loading="editVideoUping[emotion.key]">
+                  {{ editVideoUping[emotion.key] ? '上传中...' : '上传替换' }}
+                </NButton>
+              </NUpload>
+              <NButton
+                size="small"
+                type="success"
+                :loading="editVideoGening[emotion.key]"
+                @click="handleGenerateVideo(emotion.key)"
+              >
+                {{ editVideoGening[emotion.key] ? '生成中...' : '生成替换' }}
+              </NButton>
+            </div>
+          </div>
+        </div>
       </NForm>
     </CrudModal>
+
+    <!-- 图片预览弹窗 -->
+    <NModal
+      v-model:show="imagePreviewVisible"
+      preset="card"
+      :title="imagePreviewTitle"
+      style="width: 90%; max-width: 1200px"
+      :bordered="false"
+      :segmented="{ content: true }"
+    >
+      <div class="flex justify-center items-center">
+        <img :src="imagePreviewUrl" style="max-width: 100%; max-height: 80vh" />
+      </div>
+    </NModal>
   </CommonPage>
 </template>
 

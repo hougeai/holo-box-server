@@ -115,3 +115,4 @@ class ProfileUpdate(ProfileCreate): ...
 class ProfileVidGen(BaseModel):
     id: int = Field(description='形象ID')
     method: str = Field(description='生成方式，支持 bailian')
+    emotion: Optional[str] = Field(default=None, description='表情')

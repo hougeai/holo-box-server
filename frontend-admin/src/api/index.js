@@ -44,6 +44,8 @@ export default {
   profileUploadImg: (data = {}) =>
     request.post('/agent/profile/upload-img', data, { timeout: 120000 }),
   profileGenerateVid: (data = {}) => request.post('/agent/profile/generate-vid', data),
+  profileGenerateVidEdit: (data = {}) =>
+    request.post('/agent/profile/generate-vid-edit', data, { timeout: 240000 }),
   getProfile: (params = {}) => request.get('/agent/profile/', { params }),
   profileUploadVid: (data = {}) => request.post('/agent/profile/upload-vid', data),
   updateProfile: (data = {}) => request.post('/agent/profile/update', data),
