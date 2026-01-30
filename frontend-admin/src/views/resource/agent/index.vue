@@ -103,7 +103,7 @@ const fetchProfileList = async () => {
 // 获取AgentTemplate列表
 const fetchAgentTemplateList = async () => {
   try {
-    const res = await api.getAgentTemplateList()
+    const res = await api.getAgentTemplateList({ public: true })
     if (res.data) {
       agentTemplateList.value = res.data
     }
@@ -520,18 +520,28 @@ const columns = [
             trigger: ['input', 'blur'],
           }"
         >
-          <NInput v-model:value="modalForm.agent_name" placeholder="请输入智能体名称" />
+          <NInput
+            v-model:value="modalForm.agent_name"
+            placeholder="请输入智能体名称"
+            maxlength="20"
+            show-count
+          />
         </NFormItem>
         <NFormItem
           label="助手名称"
           path="assistant_name"
           :rule="{
             required: true,
-            message: '请输入智能体名称',
+            message: '请输入助手名称',
             trigger: ['input', 'blur'],
           }"
         >
-          <NInput v-model:value="modalForm.assistant_name" placeholder="请输入助手名称" />
+          <NInput
+            v-model:value="modalForm.assistant_name"
+            placeholder="请输入助手名称"
+            maxlength="20"
+            show-count
+          />
         </NFormItem>
 
         <NFormItem
@@ -549,6 +559,8 @@ const columns = [
             :rows="4"
             clearable
             placeholder="请输入角色提示词"
+            maxlength="2000"
+            show-count
           />
         </NFormItem>
         <NFormItem
