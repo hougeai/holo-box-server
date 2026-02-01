@@ -212,6 +212,17 @@ async def delete_agent_template(
     return Success(msg='Deleted Successfully')
 
 
+@router.get('/template/', summary='查询智能体模板详情')
+async def get_template(
+    id: int = Query(..., description='ID'),
+):
+    obj = await agent_template_controller.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='AgentTemplate not found')
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
 # 形象相关
 @router.get('/profile/list', summary='查看形象列表')
 async def list_profile(

@@ -1,6 +1,7 @@
-from typing import Any, Dict, Generic, List, NewType, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, NewType, Optional, Tuple, Type, TypeVar, Union
 from pydantic import BaseModel
 from tortoise.expressions import Q
+from tortoise.exceptions import DoesNotExist
 from tortoise.models import Model
 
 Total = NewType('Total', int)
@@ -13,8 +14,11 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     def __init__(self, model: Type[ModelType]):
         self.model = model
 
-    async def get(self, id: int) -> ModelType:
-        return await self.model.get(id=id)
+    async def get(self, id: int) -> Optional[ModelType]:
+        try:
+            return await self.model.get(id=id)
+        except DoesNotExist:
+            return None
 
     async def list(self, page: int, page_size: int, search: Q = Q(), order: list = []) -> Tuple[Total, List[ModelType]]:
         # 这一步只是构建查询条件，并没有执行查询

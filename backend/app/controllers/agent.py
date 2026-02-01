@@ -1,4 +1,4 @@
-from models import Agent, AgentTemplate, Voice, Profile
+from models.agent import Agent, AgentTemplate, Voice, Profile
 from schemas.agent import (
     AgentCreate,
     AgentUpdate,
