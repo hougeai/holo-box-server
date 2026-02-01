@@ -2,7 +2,7 @@
 import { h, onMounted, ref, resolveDirective, withDirectives, computed, watch } from 'vue'
 import { NButton, NInput, NPopconfirm, NSelect, NFormItem, NSwitch } from 'naive-ui'
 
-import { formatDate, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
+import { formatDateTime, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
 import { useCRUD } from '@/composables'
 import { useUserStore } from '@/store'
 import api from '@/api'
@@ -241,14 +241,14 @@ const columns = [
     ellipsis: { tooltip: true },
   },
   {
-    title: '智能体模板ID',
+    title: '模板ID',
     key: 'agent_id',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
   },
   {
-    title: '智能体模板名称',
+    title: '模板名称',
     key: 'agent_name',
     width: 30,
     align: 'center',
@@ -331,9 +331,16 @@ const columns = [
     },
   },
   {
+    title: '功能描述',
+    key: 'desc',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
     title: '创建时间',
     key: 'create_at',
-    width: 40,
+    width: 60,
     align: 'center',
     ellipsis: { tooltip: true },
     render(row) {
@@ -341,7 +348,7 @@ const columns = [
         NButton,
         { size: 'small', type: 'text', ghost: true },
         {
-          default: () => (row.create_at !== null ? formatDate(row.create_at) : null),
+          default: () => (row.create_at !== null ? formatDateTime(row.create_at) : null),
         },
       )
     },
@@ -616,6 +623,17 @@ const columns = [
             </div>
           </NFormItem>
         </div>
+        <NFormItem label="功能描述" path="desc">
+          <NInput
+            v-model:value="modalForm.desc"
+            type="textarea"
+            :rows="2"
+            clearable
+            placeholder="请输入功能描述"
+            maxlength="2000"
+            show-count
+          />
+        </NFormItem>
       </NForm>
     </CrudModal>
   </CommonPage>

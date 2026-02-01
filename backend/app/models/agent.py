@@ -18,6 +18,7 @@ class AgentTemplate(BaseModel, TimestampMixin):
     avatar = fields.TextField(null=True, description='头像')
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
     public = fields.BooleanField(default=False, null=True, description='是否公开')
+    desc = fields.TextField(null=True, description='智能体的功能特性描述')
 
 
 # agent表

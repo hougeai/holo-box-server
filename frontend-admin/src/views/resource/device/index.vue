@@ -109,7 +109,7 @@ const columns = [
     },
   },
   {
-    title: '最近对话时间',
+    title: '最近对话',
     key: 'last_conversation',
     align: 'center',
     width: 40,
@@ -120,8 +120,23 @@ const columns = [
         { size: 'small', type: 'text', ghost: true },
         {
           default: () =>
-            row.last_conversation !== null ? formatDateTime(row.last_conversation) : null,
-          icon: renderIcon('mdi:update', { size: 16 }),
+            row.last_conversation !== null ? formatDateTime(row.last_conversation) : '-',
+        },
+      )
+    },
+  },
+  {
+    title: '创建时间',
+    key: 'create_at',
+    width: 40,
+    align: 'center',
+    ellipsis: { tooltip: true },
+    render(row) {
+      return h(
+        NButton,
+        { size: 'small', type: 'text', ghost: true },
+        {
+          default: () => (row.create_at !== null ? formatDateTime(row.create_at) : null),
         },
       )
     },
@@ -129,7 +144,7 @@ const columns = [
   {
     title: '是否解绑过',
     key: 'is_unbound',
-    width: 40,
+    width: 30,
     align: 'center',
     render(row) {
       return h(

@@ -19,7 +19,7 @@ import {
 } from 'naive-ui'
 import TheIcon from '@/components/icon/TheIcon.vue'
 
-import { formatDate, renderIcon, formatJSON } from '@/utils'
+import { formatDateTime, renderIcon, formatJSON } from '@/utils'
 import { useCRUD } from '@/composables'
 import { useUserStore } from '@/store'
 import api from '@/api'
@@ -602,7 +602,7 @@ const columns = [
   {
     title: '创建时间',
     key: 'create_at',
-    width: 40,
+    width: 60,
     align: 'center',
     ellipsis: { tooltip: true },
     render(row) {
@@ -610,7 +610,7 @@ const columns = [
         NButton,
         { size: 'small', type: 'text', ghost: true },
         {
-          default: () => (row.create_at !== null ? formatDate(row.create_at) : null),
+          default: () => (row.create_at !== null ? formatDateTime(row.create_at) : null),
         },
       )
     },

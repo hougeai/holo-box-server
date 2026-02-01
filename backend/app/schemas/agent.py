@@ -20,12 +20,12 @@ class AgentTemplateCreate(BaseModel):
     avatar: Optional[str] = Field(default=None, description='头像')
     profile_id: Optional[int] = Field(default=None, description='形象ID')
     public: Optional[bool] = Field(default=False, description='是否公开')
+    desc: Optional[str] = Field(default=None, description='智能体的功能特性描述')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
     id: int = Field(description='ID')
     agent_name: Optional[str] = Field(default=None, description='智能体名称')
-    public: Optional[bool] = Field(default=None, description='是否公开')
 
 
 # ========== Agent ==========
