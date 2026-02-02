@@ -15,6 +15,7 @@ from controllers import (
     voice_controller,
     profile_controller,
     system_prompt_controller,
+    mcp_tool_controller,
 )
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import (
@@ -27,8 +28,10 @@ from schemas.agent import (
     VoiceUpdate,
     SystemPromptCreate,
     SystemPromptUpdate,
+    McpToolCreate,
+    McpToolUpdate,
 )
-from models.agent import Agent, AgentTemplate, Voice, LLM, Profile, SystemPrompt
+from models.agent import Agent, AgentTemplate, Voice, LLM, Profile, SystemPrompt, McpTool
 
 router = APIRouter()
 
@@ -474,6 +477,88 @@ async def delete_sys_prompt(
     if not obj:
         return Fail(code=400, msg='系统提示词不存在')
     await system_prompt_controller.remove(id=id)
+    return Success(msg='删除成功')
+
+
+# MCP 相关
+@router.get('/mcp-tool/list', summary='查看MCP工具列表')
+async def list_mcp_tool(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(999, description='每页数量'),
+    name: Optional[str] = Query('', description='名称，用于搜索'),
+    source: Optional[str] = Query('', description='创建来源'),
+    enabled: Optional[bool] = Query(None, description='是否启用'),
+):
+    q = Q()
+    if name:
+        q &= Q(name__icontains=name)
+    if source:
+        q &= Q(source=source)
+    if enabled is not None:
+        q &= Q(enabled=enabled)
+    total, objs = await mcp_tool_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
+    data = [await obj.to_dict() for obj in objs]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+@router.post('/mcp-tool/create', summary='创建MCP工具')
+async def create_mcp_tool(
+    obj_in: McpToolCreate,
+):
+    obj = await McpTool.filter(name=obj_in.name).first()
+    if obj:
+        return Fail(code=400, msg=f'MCP已存在: {obj.name}')
+    # 请求xz-service创建MCP
+    res = await xz_service.create_mcp(obj_in.name, obj_in.description)
+    if not res or not res['success']:
+        logger.error(f'创建MCP失败: {res.get("message", "")}')
+        return Fail(code=400, msg=f'云端创建MCP失败: {res.get("message", "")}')
+    endpoint_id = res['data']['id']
+    obj_in.endpoint_id = endpoint_id
+    # 请求生成token
+    res = await xz_service.create_mcp_token(endpoint_id)
+    if not res or not res['success']:
+        logger.error(f'创建MCP Token失败: {res.get("message", "")}')
+        return Fail(code=400, msg=f'云端创建MCP Token失败: {res.get("message", "")}')
+    obj_in.token = res.get('token', '')
+    obj = await mcp_tool_controller.create(obj_in)
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.post('/mcp-tool/update', summary='更新MCP工具')
+async def update_mcp_tool(
+    obj_in: McpToolUpdate,
+):
+    obj = await mcp_tool_controller.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='MCP不存在')
+    update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
+    local_only_fields = {'source', 'public'}
+    has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
+    # 如果有需要远程更新的字段，则调用远端服务
+    if has_remote_fields:
+        res = await xz_service.update_mcp(obj.agent_id, obj_in)
+        if not res or not res['success']:
+            return Fail(code=400, msg=f'云端更新失败: {res.get("message", "")}')
+    obj = await mcp_tool_controller.update(id=obj.id, obj_in=obj_in)
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.delete('/mcp-tool/delete', summary='删除MCP工具')
+async def delete_mcp_tool(
+    id: int = Query(..., description='ID'),
+):
+    obj = await mcp_tool_controller.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='MCP不存在')
+    # 先删除xz-service的MCP
+    res = await xz_service.delete_mcp(obj.endpoint_id)
+    if not res or not res['success']:
+        logger.error(f'删除MCP失败: {res.get("message", "")}')
+        return Fail(code=400, msg=f'云端删除MCP失败: {res.get("message", "")}')
+    await mcp_tool_controller.remove(id=id)
     return Success(msg='删除成功')
 
 

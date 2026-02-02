@@ -86,3 +86,15 @@ class SystemPrompt(BaseModel, TimestampMixin):
     user_id = fields.CharField(max_length=12, null=True, index=True, description='用户ID')
     name = fields.CharField(max_length=64, null=True, index=True, description='系统提示词名称')
     content = fields.TextField(null=True, description='系统提示词内容')
+
+
+# MCP表
+class McpTool(BaseModel, TimestampMixin):
+    user_id = fields.CharField(max_length=12, null=True, index=True, description='用户ID')
+    endpoint_id = fields.CharField(max_length=12, null=True, index=True, description='MCP端点ID')
+    name = fields.CharField(max_length=64, null=True, index=True, description='MCP名称')
+    description = fields.TextField(null=True, description='MCP描述')
+    source = fields.CharField(max_length=64, null=True, index=True, description='创建来源')
+    enabled = fields.BooleanField(default=True, null=True, description='是否启用')
+    token = fields.TextField(null=True, description='MCP密钥')
+    public = fields.BooleanField(default=False, description='是否公开')

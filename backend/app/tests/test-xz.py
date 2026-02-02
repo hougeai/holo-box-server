@@ -58,9 +58,12 @@ def test_agentTemplate():
 
 def test_mcp():
     response = client.get('/api/developers/mcp-endpoints', headers=headers)
+    # response = client.post('/api/developers/mcp-endpoints', data={'name': 'xx'}, headers=headers)
+    # response = client.post('/api/developers/mcp-endpoints/245/generate-endpoint-token', headers=headers)
     print(response.status_code)
     with open('0mcp.json', 'w', encoding='utf-8') as f:
         f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
+    print(response.json())
 
 
 if __name__ == '__main__':

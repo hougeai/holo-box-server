@@ -1,4 +1,4 @@
-from models.agent import Agent, AgentTemplate, Voice, Profile, SystemPrompt
+from models.agent import Agent, AgentTemplate, Voice, Profile, SystemPrompt, McpTool
 from schemas.agent import (
     AgentCreate,
     AgentUpdate,
@@ -10,6 +10,8 @@ from schemas.agent import (
     ProfileUpdate,
     SystemPromptCreate,
     SystemPromptUpdate,
+    McpToolCreate,
+    McpToolUpdate,
 )
 
 from .crud import CRUDBase
@@ -53,3 +55,11 @@ class SystemPromptController(CRUDBase[SystemPrompt, SystemPromptCreate, SystemPr
 
 
 system_prompt_controller = SystemPromptController()
+
+
+class McpToolController(CRUDBase[McpTool, McpToolCreate, McpToolUpdate]):
+    def __init__(self):
+        super().__init__(model=McpTool)
+
+
+mcp_tool_controller = McpToolController()

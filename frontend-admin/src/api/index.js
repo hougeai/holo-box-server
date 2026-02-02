@@ -55,6 +55,11 @@ export default {
   createSysPrompt: (data = {}) => request.post('/agent/sys-prompt/create', data),
   updateSysPrompt: (data = {}) => request.post('/agent/sys-prompt/update', data),
   deleteSysPrompt: (params = {}) => request.delete('/agent/sys-prompt/delete', { params }),
+  // resource-mcpTool
+  getMcpToolList: (params = {}) => request.get('/agent/mcp-tool/list', { params }),
+  createMcpTool: (data = {}) => request.post('/agent/mcp-tool/create', data),
+  updateMcpTool: (data = {}) => request.post('/agent/mcp-tool/update', data),
+  deleteMcpTool: (params = {}) => request.delete('/agent/mcp-tool/delete', { params }),
   // resource-device
   getDeviceList: (params = {}) => request.get('/device/list', { params }),
   createDevice: (data = {}) => request.post('/device/create', data),

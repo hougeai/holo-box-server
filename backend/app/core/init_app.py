@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from tortoise.expressions import Q
 from api import api_router, ota_router
 from models.admin import Api, Menu, Role, RoleMenu, RoleApi
-from models.agent import AgentTemplate, Agent, LLM, Voice
+from models.agent import AgentTemplate, Agent, LLM, Voice, McpTool
 from models.device import Device
 from models.resource import Ota
 from models.enums import MenuType
@@ -247,6 +247,17 @@ async def init_menus():
             icon='material-symbols:devices',
             hidden=False,
             component='/resource/sysPrompt',
+            keepalive=False,
+        ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='MCP管理',
+            path='mcpTool',
+            order=9,
+            parent_id=parent_menu.id,
+            icon='material-symbols:devices',
+            hidden=False,
+            component='/resource/mcpTool',
             keepalive=False,
         ),
     ]
@@ -493,6 +504,59 @@ async def init_voices():
         await Voice.bulk_create(objs)
 
 
+async def init_mcps():
+    existing_mcps = await McpTool.all()
+    existing_ids = {int(mcp.endpoint_id) for mcp in existing_mcps}
+    # 官方MCP
+    official_mcps = await xz_service.list_mcp_official()
+    official_ids = {int(mcp['endpoint_id']) for mcp in official_mcps}
+    # 需要删除的：在数据库中但不在API中
+    to_delete_ids = existing_ids - official_ids
+    if to_delete_ids:
+        await McpTool.filter(endpoint_id__in=to_delete_ids).delete()
+    # 需要添加的：在API中但不在数据库中
+    to_add_ids = official_ids - existing_ids
+    if to_add_ids:
+        objs = [
+            McpTool(
+                user_id='1',
+                name=mcp.get('name'),
+                description=mcp.get('name'),
+                endpoint_id=mcp.get('endpoint_id'),
+                source='official',
+                enabled=True,
+                public=True,
+            )
+            for mcp in official_mcps
+            if mcp.get('endpoint_id') in to_add_ids
+        ]
+        await McpTool.bulk_create(objs)
+    # 产品MCP
+    product_mcps = await xz_service.list_mcp_product()
+    product_ids = {int(mcp.get('id')) for mcp in product_mcps}
+    # 需要删除的：在数据库中但不在API中
+    to_delete_ids = existing_ids - product_ids
+    if to_delete_ids:
+        await McpTool.filter(endpoint_id__in=to_delete_ids).delete()
+    # 需要添加的：在API中但不在数据库中
+    to_add_ids = product_ids - existing_ids
+    if to_add_ids:
+        objs = [
+            McpTool(
+                user_id='1',
+                name=mcp.get('name'),
+                description=mcp.get('description'),
+                endpoint_id=mcp.get('id'),
+                source='product',
+                enabled=mcp.get('enabled'),
+                public=False,
+            )
+            for mcp in product_mcps
+            if mcp.get('id') in to_add_ids
+        ]
+        await McpTool.bulk_create(objs)
+
+
 async def init_data(app: FastAPI):
     await init_db()
     await init_menus()
@@ -505,3 +569,4 @@ async def init_data(app: FastAPI):
     await init_agent()
     await init_llm()
     await init_voices()
+    await init_mcps()

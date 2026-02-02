@@ -131,3 +131,21 @@ class SystemPromptUpdate(SystemPromptCreate):
     id: int = Field(description='ID')
     user_id: Optional[str] = Field(default=None, description='用户ID')
     name: Optional[str] = Field(default=None, description='系统提示词名称')
+
+
+# ========== McpTool ==========
+class McpToolCreate(BaseModel):
+    user_id: str = Field(description='用户ID')
+    name: str = Field(description='MCP名称')
+    description: Optional[str] = Field(default=None, description='MCP描述')
+    source: Optional[str] = Field(default=None, description='创建来源')
+    enabled: Optional[bool] = Field(default=True, description='是否启用')
+    endpoint_id: Optional[str] = Field(default=None, description='MCP端点ID')
+    token: Optional[str] = Field(default=None, description='MCP密钥')
+    public: Optional[bool] = Field(default=False, description='是否公开')
+
+
+class McpToolUpdate(McpToolCreate):
+    id: int = Field(description='ID')
+    user_id: Optional[str] = Field(default=None, description='用户ID')
+    name: Optional[str] = Field(default=None, description='MCP名称')

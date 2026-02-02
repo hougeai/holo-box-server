@@ -34,3 +34,4 @@ def get_logger(log_name='app.log'):
 
 
 logger = get_logger()
+mcp_logger = get_logger('mcp.log')

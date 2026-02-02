@@ -140,14 +140,6 @@ class XZService:
         data = {'id': id}
         return await self._make_request('POST', url, json=data)
 
-    # async def get_mcp_list(self):
-    #     """获取MCP列表"""
-    #     url = f'{self.base_url}/api/agents/common-mcp-tool/list'
-    #     data = await self._make_request('GET', url)
-    #     if not data:
-    #         return None
-    #     return data.get('data', [])
-
     async def list_llm(self):
         """LLM模型列表"""
         url = f'{self.base_url}/api/roles/model-list'
@@ -235,10 +227,50 @@ class XZService:
         url = f'{self.base_url}/api/developers/unbind-device'
         return await self._make_request('POST', url, json=data)
 
-    async def list_device(self):
-        """设备列表"""
-        url = f'{self.base_url}/api/developers/devices'
-        return await self._make_request('GET', url)
+    # mcp相关接口
+    async def list_mcp_official(self):
+        """获取官方MCP列表"""
+        url = f'{self.base_url}/api/agents/common-mcp-tool/list'
+        data = await self._make_request('GET', url)
+        if not data:
+            return None
+        return data.get('data', [])
+
+    async def list_mcp_product(self):
+        """获取产品MCP列表"""
+        url = f'{self.base_url}/api/developers/mcp-endpoints'
+        data = await self._make_request('GET', url)
+        if not data:
+            return None
+        return data.get('data', [])
+
+    async def create_mcp(self, name, description):
+        """创建产品MCP"""
+        url = f'{self.base_url}/api/developers/mcp-endpoints'
+        data = {'name': name, 'description': description, 'enabled': True}
+        return await self._make_request('POST', url, json=data)
+
+    async def create_mcp_token(self, endpoint_id):
+        """创建产品MCP token"""
+        url = f'{self.base_url}/api/developers/mcp-endpoints/{endpoint_id}/generate-endpoint-token'
+        return await self._make_request('POST', url)
+
+    async def update_mcp(self, obj_in):
+        """更新产品MCP"""
+        url = f'{self.base_url}/api/developers/mcp-endpoints/{obj_in.endpoint_id}'
+        data = {}
+        if obj_in.name:
+            data['name'] = obj_in.name
+        if obj_in.description:
+            data['description'] = obj_in.description
+        if obj_in.enabled:
+            data['enabled'] = obj_in.enabled
+        return await self._make_request('POST', url, json=data)
+
+    async def delete_mcp(self, endpoint_id):
+        """删除产品MCP"""
+        url = f'{self.base_url}/api/developers/mcp-endpoints/{endpoint_id}'
+        return await self._make_request('DELETE', url)
 
 
 xz_service = XZService()
