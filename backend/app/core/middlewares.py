@@ -158,6 +158,11 @@ class HttpAuditLogMiddleware(BaseHTTPMiddleware):
             # 获取用户信息：Starlette 的 BaseHTTPMiddleware 在某些情况下会切换执行上下文/Task，导致 contextvars 丢失
             user_id = getattr(request.state, 'user_id', None) or CTX_USER_ID.get()
             data['user_id'] = user_id if user_id else '0'
+            # 确保 JSONField 字段不为空字符串或无效值
+            if not data.get('args') or data.get('args') == '':
+                data['args'] = None
+            if not data.get('body') or data.get('body') == '':
+                data['body'] = None
             await AuditLog.create(**data)
 
         return response
