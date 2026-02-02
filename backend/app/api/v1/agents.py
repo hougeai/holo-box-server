@@ -538,7 +538,7 @@ async def update_mcp_tool(
     has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
-        res = await xz_service.update_mcp(obj.agent_id, obj_in)
+        res = await xz_service.update_mcp(obj_in)
         if not res or not res['success']:
             return Fail(code=400, msg=f'云端更新失败: {res.get("message", "")}')
     obj = await mcp_tool_controller.update(id=obj.id, obj_in=obj_in)

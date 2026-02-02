@@ -1,5 +1,6 @@
 from tortoise import fields
 from .base import BaseModel, TimestampMixin
+from .enums import McpProtocol
 
 
 # agent模板：和agent对齐，改造xiaozhi-api返回结果进行适配
@@ -98,3 +99,5 @@ class McpTool(BaseModel, TimestampMixin):
     enabled = fields.BooleanField(default=True, null=True, description='是否启用')
     token = fields.TextField(null=True, description='MCP密钥')
     public = fields.BooleanField(default=False, description='是否公开')
+    protocol = fields.CharEnumField(McpProtocol, null=True, description='协议类型')
+    config = fields.JSONField(null=True, description='配置文件')

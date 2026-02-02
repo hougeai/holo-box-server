@@ -1,13 +1,85 @@
 <script setup>
 import { h, onMounted, ref, resolveDirective, withDirectives } from 'vue'
-import { NButton, NInput, NPopconfirm, NFormItem, NTag, NSwitch } from 'naive-ui'
-
-import { formatDateTime, renderIcon } from '@/utils'
+import { NButton, NInput, NPopconfirm, NFormItem, NTag, NSwitch, NPopover } from 'naive-ui'
+import TheIcon from '@/components/icon/TheIcon.vue'
+import { formatDateTime, renderIcon, formatJSON } from '@/utils'
 import { useCRUD } from '@/composables'
 import { useUserStore } from '@/store'
 import api from '@/api'
 
 defineOptions({ name: 'MCP管理' })
+
+const protocolOptions = [
+  { label: 'sse', value: 'sse' },
+  { label: 'StreamableHttp', value: 'http' },
+]
+
+// 将数组格式的环境变量转换为对象
+function convertArrayToObject(arr) {
+  if (!arr || !Array.isArray(arr) || arr.length === 0) return {}
+  const obj = {}
+  arr.forEach((item) => {
+    if (item.key !== undefined && item.value !== undefined) {
+      obj[item.key] = item.value
+    }
+  })
+  return obj
+}
+
+// 将对象格式的环境变量转换为数组
+function convertObjectToArray(obj) {
+  if (!obj || typeof obj !== 'object') return []
+
+  return Object.keys(obj).map((key) => ({
+    key,
+    value: obj[key],
+  }))
+}
+
+// 数据预处理函数
+function handleProcessData() {
+  // 创建config对象
+  if (modalForm.value.protocol === 'stdio') {
+    // stdio协议
+    modalForm.value.config = {
+      command: modalForm.value.command,
+      args: modalForm.value.args || [],
+      env: convertArrayToObject(modalForm.value.env) || {},
+    }
+    // 删除临时字段
+    delete modalForm.value.command
+    delete modalForm.value.args
+    delete modalForm.value.env
+  } else {
+    // http/sse协议
+    modalForm.value.config = {
+      url: modalForm.value.url,
+      headers: convertArrayToObject(modalForm.value.headers) || {},
+    }
+    // 删除临时字段
+    delete modalForm.value.url
+    delete modalForm.value.args
+  }
+  return true
+}
+
+// 编辑时数据处理
+function handleEditWithData(row) {
+  handleEdit(row)
+  // 将config中的数据提取到表单字段中
+  if (row.config) {
+    if (row.protocol === 'stdio') {
+      // stdio协议处理
+      modalForm.value.command = row.config.command || ''
+      modalForm.value.args = Array.isArray(row.config.args) ? row.config.args : []
+      modalForm.value.env = convertObjectToArray(row.config.env || {})
+    } else {
+      // http/sse协议处理
+      modalForm.value.url = row.config.url || ''
+      modalForm.value.headers = convertObjectToArray(row.config.headers || {})
+    }
+  }
+}
 
 const $table = ref(null) // 只是说明这是一个特殊的实例
 const queryItems = ref({})
@@ -129,6 +201,42 @@ const columns = [
     },
   },
   {
+    title: '协议',
+    key: 'protocol',
+    width: 20,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '配置',
+    key: 'config',
+    width: 20,
+    align: 'center',
+    ellipsis: { tooltip: true },
+    render: (row) => {
+      return h(
+        NPopover,
+        {
+          trigger: 'hover',
+          placement: 'right',
+        },
+        {
+          trigger: () =>
+            h('div', { style: 'cursor: pointer;' }, [h(TheIcon, { icon: 'carbon:data-view' })]),
+          default: () =>
+            h(
+              'pre',
+              {
+                style:
+                  'max-height: 400px; overflow: auto; background-color: #f5f5f5; padding: 8px; border-radius: 4px;',
+              },
+              formatJSON(row.config),
+            ),
+        },
+      )
+    },
+  },
+  {
     title: '创建时间',
     key: 'create_at',
     width: 60,
@@ -160,7 +268,7 @@ const columns = [
               type: 'primary',
               style: 'margin-right: 8px;',
               onClick: () => {
-                handleEdit(row)
+                handleEditWithData(row)
               },
             },
             {
@@ -230,7 +338,7 @@ const columns = [
       v-model:visible="modalVisible"
       :title="modalTitle"
       :loading="modalLoading"
-      @save="handleSave"
+      @save="() => handleSave(handleProcessData)"
     >
       <NForm
         ref="modalFormRef"
@@ -274,6 +382,28 @@ const columns = [
             show-count
           />
         </NFormItem>
+        <NFormItem label="协议" path="protocol">
+          <NSelect
+            v-model:value="modalForm.protocol"
+            :options="protocolOptions"
+            clearable
+            placeholder="请选择MCP协议"
+          />
+        </NFormItem>
+        <template v-if="['sse', 'http'].includes(modalForm.protocol)">
+          <NFormItem label="服务地址" path="url">
+            <NInput v-model:value="modalForm.url" clearable placeholder="请输入服务地址" />
+          </NFormItem>
+
+          <NFormItem label="Headers">
+            <NDynamicInput
+              v-model:value="modalForm.headers"
+              preset="pair"
+              key-placeholder="Header名称"
+              value-placeholder="Header值"
+            />
+          </NFormItem>
+        </template>
       </NForm>
     </CrudModal>
   </CommonPage>

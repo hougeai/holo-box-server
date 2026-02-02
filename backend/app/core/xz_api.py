@@ -101,7 +101,7 @@ class XZService:
         if obj_in.memory_type:
             data['memory_type'] = obj_in.memory_type  # "OFF"、"SHORT_TERM"
         url = f'{self.base_url}/api/agents'
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def update_agent(self, id, obj_in):
         """更新智能体"""
@@ -132,13 +132,13 @@ class XZService:
         if obj_in.mcp_endpoints:
             data['mcp_endpoints'] = obj_in.mcp_endpoints  # 查看 官方MCP 工具接口
         url = f'{self.base_url}/api/agents/{id}/config'
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def delete_agent(self, id):
         """删除智能体"""
         url = f'{self.base_url}/api/agents/delete'
         data = {'id': id}
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def list_llm(self):
         """LLM模型列表"""
@@ -188,7 +188,7 @@ class XZService:
             'tts_pitch': obj_in.tts_pitch,
             'default_tts_voice': f'{obj_in.language}:{obj_in.tts_voice}',
         }
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def update_agent_template(self, id, obj_in):
         """更新智能体模板"""
@@ -219,13 +219,13 @@ class XZService:
         """绑定设备"""
         url = f'{self.base_url}/api/agents/{agentId}/devices'
         data = {'verificationCode': verificationCode}
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def unbind_device(self, deviceId):
         """解绑设备"""
         data = {'device_id': deviceId}
         url = f'{self.base_url}/api/developers/unbind-device'
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     # mcp相关接口
     async def list_mcp_official(self):
@@ -248,7 +248,7 @@ class XZService:
         """创建产品MCP"""
         url = f'{self.base_url}/api/developers/mcp-endpoints'
         data = {'name': name, 'description': description, 'enabled': True}
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def create_mcp_token(self, endpoint_id):
         """创建产品MCP token"""
@@ -265,7 +265,7 @@ class XZService:
             data['description'] = obj_in.description
         if obj_in.enabled:
             data['enabled'] = obj_in.enabled
-        return await self._make_request('POST', url, json=data)
+        return await self._make_request('PUT', url, json=data)
 
     async def delete_mcp(self, endpoint_id):
         """删除产品MCP"""

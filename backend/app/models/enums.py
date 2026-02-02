@@ -25,3 +25,9 @@ class MethodType(str, Enum):
 class MenuType(str, Enum):
     CATALOG = 'catalog'  # 目录
     MENU = 'menu'  # 菜单
+
+
+class McpProtocol(str, Enum):
+    STDIO = 'stdio'
+    SSE = 'sse'
+    HTTP = 'http'

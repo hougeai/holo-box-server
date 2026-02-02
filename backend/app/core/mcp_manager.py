@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import asyncio
+import aiohttp
 import websockets
 from .log import mcp_logger as logger
 
@@ -32,28 +33,28 @@ async def connect_with_retry(uri, mcp):
     """Connect to WebSocket server with retry mechanism for a given server target."""
     reconnect_attempt = 0
     backoff = 1
-    name = mcp['name']
+    mcp_id = mcp['id']
     max_retries = 7
     while reconnect_attempt <= max_retries:
         try:
             if reconnect_attempt > 0:
-                logger.info(f'[{name}] Waiting {backoff}s before reconnection attempt {reconnect_attempt}...')
+                logger.info(f'[{mcp_id}] Waiting {backoff}s before reconnection attempt {reconnect_attempt}...')
                 await asyncio.sleep(backoff)
             # Attempt to connect
             await connect_to_server(uri, mcp)
         except asyncio.CancelledError:
-            logger.info(f'[{name}] connect_with_retry task cancelled.')
+            logger.info(f'[{mcp_id}] connect_with_retry task cancelled.')
             raise  # 必须重新抛出，否则 task 无法被取消
         except websockets.exceptions.ConnectionClosed as e:
             reconnect_attempt += 1
-            logger.warning(f'[{name}] WebSocket connection closed (attempt {reconnect_attempt}): {e}')
+            logger.warning(f'[{mcp_id}] WebSocket connection closed (attempt {reconnect_attempt}): {e}')
             backoff = min(backoff * 2, 120)
         except Exception as e:
             reconnect_attempt += 1
-            logger.error(f'[{name}] Process error (attempt {reconnect_attempt}): {e}')
+            logger.error(f'[{mcp_id}] Process error (attempt {reconnect_attempt}): {e}')
             backoff = min(backoff * 2, 120)
     # 最后也要清理process
-    logger.error(f'[{name}] Failed to connect after {max_retries} attempts')
+    logger.error(f'[{mcp_id}] Failed to connect after {max_retries} attempts')
 
 
 async def connect_to_server(uri, mcp):
@@ -167,21 +168,14 @@ class ProcessManager:
             self.ws_map[mcp_id] = websocket
             logger.info(f'{mcp_id} register_ws: mcp')
 
-    async def unregister_ws(self, mcp_id):
-        """Unregister a websocket; if no websockets remain for this mcp, consider termination policy."""
-        async with self.lock:
-            if mcp_id in self.ws_map:
-                self.ws_map.pop(mcp_id, None)
-                logger.info(f'{mcp_id} unregister_ws')
-
     async def terminate(self, mcp_id):
         """Terminate the shared process for given mcp_id"""
         async with self.lock:
+            self.ws_map.pop(mcp_id, None)
             proc = self.processes.pop(mcp_id, None)
             # cancel stdout/stderr tasks
             t_out = self.stdout_tasks.pop(mcp_id, None)
             t_err = self.stderr_tasks.pop(mcp_id, None)
-            self.ws_map.pop(mcp_id, None)
         if t_out:
             t_out.cancel()
         if t_err:
@@ -272,3 +266,58 @@ class ProcessManager:
 
 
 process_manager = ProcessManager()
+
+
+class MCPManager:
+    def __init__(self):
+        self.connections = {}
+
+    async def test(self, obj_in):
+        name = obj_in.name
+        config = obj_in.config
+        protocol = obj_in.protocol
+        if protocol == 'stdio':
+            return False, 'Not support stdio MCP'
+        else:
+            url = config.get('url', '')
+            headers = config.get('headers', {})
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as response:
+                        logger.info(f'[{name}] MCP test response: {response.status}')
+                        if 200 <= response.status < 400:
+                            return True, ''
+                        else:
+                            return False, f'HTTP {response.status}: {await response.text()}'
+            except Exception as e:
+                logger.error(f'[{name}] Error connecting to MCP: {e}')
+                return False, f'Error connecting to MCP: {e}'
+
+    async def connect(self, mcp):
+        # 为每个MCP创建一个连接
+        id = mcp['id']
+        token = mcp['token']
+        if not token:
+            return False, 'MCP token is required'
+        uri = f'wss://api.xiaozhi.me/mcp/?token={token}'
+        task = asyncio.create_task(connect_with_retry(uri, mcp))
+        self.connections[id] = task
+        return True, 'Connected to MCP'
+
+    async def disconnect(self, mcp):
+        async with self._lock:
+            mcp_id = mcp['id']
+            task = self.connections.get(mcp_id)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            try:
+                await process_manager.terminate(mcp_id)
+            except Exception as e:
+                logger.exception(f'{mcp_id} terminate error: {e}')
+        return True, 'Disconnected'
+
+
+mcp_manager = MCPManager()

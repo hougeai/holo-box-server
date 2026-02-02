@@ -505,9 +505,10 @@ async def init_voices():
 
 
 async def init_mcps():
-    existing_mcps = await McpTool.all()
-    existing_ids = {int(mcp.endpoint_id) for mcp in existing_mcps}
     # 官方MCP
+    existing_mcps = await McpTool.filter(source='official').all()
+    existing_ids = {int(mcp.endpoint_id) for mcp in existing_mcps}
+    logger.info(f'existing_ids: {existing_ids}')
     official_mcps = await xz_service.list_mcp_official()
     official_ids = {int(mcp['endpoint_id']) for mcp in official_mcps}
     # 需要删除的：在数据库中但不在API中
@@ -516,6 +517,7 @@ async def init_mcps():
         await McpTool.filter(endpoint_id__in=to_delete_ids).delete()
     # 需要添加的：在API中但不在数据库中
     to_add_ids = official_ids - existing_ids
+    logger.info(f'to_add_ids: {to_add_ids}')
     if to_add_ids:
         objs = [
             McpTool(
@@ -525,13 +527,16 @@ async def init_mcps():
                 endpoint_id=mcp.get('endpoint_id'),
                 source='official',
                 enabled=True,
-                public=True,
+                public=False,
             )
             for mcp in official_mcps
-            if mcp.get('endpoint_id') in to_add_ids
+            if int(mcp.get('endpoint_id')) in to_add_ids
         ]
         await McpTool.bulk_create(objs)
     # 产品MCP
+    existing_mcps = await McpTool.filter(source='product').all()
+    existing_ids = {int(mcp.endpoint_id) for mcp in existing_mcps}
+    logger.info(f'existing_ids: {existing_ids}')
     product_mcps = await xz_service.list_mcp_product()
     product_ids = {int(mcp.get('id')) for mcp in product_mcps}
     # 需要删除的：在数据库中但不在API中
@@ -540,20 +545,29 @@ async def init_mcps():
         await McpTool.filter(endpoint_id__in=to_delete_ids).delete()
     # 需要添加的：在API中但不在数据库中
     to_add_ids = product_ids - existing_ids
+    logger.info(f'to_add_ids: {to_add_ids}')
     if to_add_ids:
-        objs = [
-            McpTool(
-                user_id='1',
-                name=mcp.get('name'),
-                description=mcp.get('description'),
-                endpoint_id=mcp.get('id'),
-                source='product',
-                enabled=mcp.get('enabled'),
-                public=False,
+        objs = []
+        for mcp in product_mcps:
+            if mcp.get('id') not in to_add_ids:
+                continue
+            res = await xz_service.create_mcp_token(mcp.get('id'))
+            if not res or not res['success']:
+                token = ''
+            else:
+                token = res.get('token', '')
+            objs.append(
+                McpTool(
+                    user_id='1',
+                    endpoint_id=mcp.get('id'),
+                    name=mcp.get('name'),
+                    description=mcp.get('description'),
+                    source='product',
+                    enabled=mcp.get('enabled'),
+                    token=token,
+                    public=False,
+                )
             )
-            for mcp in product_mcps
-            if mcp.get('id') in to_add_ids
-        ]
         await McpTool.bulk_create(objs)
 
 

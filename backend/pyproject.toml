@@ -82,6 +82,9 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     "esdk-obs-python>=3.25.8",
     "pillow>=12.1.0",
+    "mcp>=1.12.4",
+    "mcp-proxy>=0.8.2",
+    "fastmcp>=1.0",
 ]
 
 
