@@ -9,7 +9,13 @@ from core.xz_api import xz_service
 from core.profile_api import bl_service
 from core.minio import oss
 from core.config import settings
-from controllers import agent_controller, agent_template_controller, voice_controller, profile_controller
+from controllers import (
+    agent_controller,
+    agent_template_controller,
+    voice_controller,
+    profile_controller,
+    system_prompt_controller,
+)
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import (
     AgentCreate,
@@ -19,8 +25,10 @@ from schemas.agent import (
     ProfileVidGen,
     ProfileUpdate,
     VoiceUpdate,
+    SystemPromptCreate,
+    SystemPromptUpdate,
 )
-from models.agent import Agent, AgentTemplate, Voice, LLM, Profile
+from models.agent import Agent, AgentTemplate, Voice, LLM, Profile, SystemPrompt
 
 router = APIRouter()
 
@@ -185,7 +193,7 @@ async def update_agent_template(
     if not obj:
         return Fail(code=400, msg='AgentTemplate not found')
     update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
-    local_only_fields = {'avatar', 'profile_id', 'public', 'desc'}
+    local_only_fields = {'avatar', 'profile_id', 'public', 'desc', 'system_prompt'}
     has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
@@ -416,6 +424,56 @@ async def delete_profile(
                 key = info['url'].replace(settings.OSS_BUCKET_URL, '')
                 await oss.delete_file_async(key=key)
     await profile_controller.remove(id=id)
+    return Success(msg='删除成功')
+
+
+# 系统提示词相关
+@router.get('/sys-prompt/list', summary='查看系统提示词列表')
+async def list_sys_prompt_list(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(999, description='每页数量'),
+    name: Optional[str] = Query('', description='名称，用于搜索'),
+):
+    q = Q()
+    if name:
+        q &= Q(name__icontains=name)
+    total, objs = await system_prompt_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
+    data = [await obj.to_dict() for obj in objs]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+@router.post('/sys-prompt/create', summary='创建系统提示词')
+async def create_sys_prompt(
+    obj_in: SystemPromptCreate,
+):
+    obj = await SystemPrompt.filter(name=obj_in.name).first()
+    if obj:
+        return Fail(code=400, msg='系统提示词已存在')
+    obj = await system_prompt_controller.create(obj_in)
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.post('/sys-prompt/update', summary='更新系统提示词')
+async def update_sys_prompt(
+    obj_in: SystemPromptUpdate,
+):
+    obj = await system_prompt_controller.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='系统提示词不存在')
+    obj = await system_prompt_controller.update(id=obj.id, obj_in=obj_in)
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.delete('/sys-prompt/delete', summary='删除系统提示词')
+async def delete_sys_prompt(
+    id: int = Query(..., description='ID'),
+):
+    obj = await system_prompt_controller.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='系统提示词不存在')
+    await system_prompt_controller.remove(id=id)
     return Success(msg='删除成功')
 
 

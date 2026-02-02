@@ -96,7 +96,8 @@ class XZService:
         if obj_in.language:
             data['language'] = obj_in.language
         if obj_in.character:
-            data['character'] = obj_in.character
+            character = str(obj_in.character).strip()
+            data['character'] = f'{character}\n{obj_in.system_prompt}'  # 要拼接系统提示词
         if obj_in.memory_type:
             data['memory_type'] = obj_in.memory_type  # "OFF"、"SHORT_TERM"
         url = f'{self.base_url}/api/agents'
@@ -122,7 +123,8 @@ class XZService:
         if obj_in.language:
             data['language'] = obj_in.language
         if obj_in.character:
-            data['character'] = obj_in.character
+            character = str(obj_in.character).strip()
+            data['character'] = f'{character}\n{obj_in.system_prompt}'  # 要拼接系统提示词
         if obj_in.memory:
             data['memory'] = obj_in.memory
         if obj_in.memory_type:

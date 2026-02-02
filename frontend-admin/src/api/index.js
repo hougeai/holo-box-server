@@ -50,6 +50,11 @@ export default {
   profileUploadVid: (data = {}) => request.post('/agent/profile/upload-vid', data),
   updateProfile: (data = {}) => request.post('/agent/profile/update', data),
   deleteProfile: (params = {}) => request.delete('/agent/profile/delete', { params }),
+  // resource-sysPrompt
+  getSysPromptList: (params = {}) => request.get('/agent/sys-prompt/list', { params }),
+  createSysPrompt: (data = {}) => request.post('/agent/sys-prompt/create', data),
+  updateSysPrompt: (data = {}) => request.post('/agent/sys-prompt/update', data),
+  deleteSysPrompt: (params = {}) => request.delete('/agent/sys-prompt/delete', { params }),
   // resource-device
   getDeviceList: (params = {}) => request.get('/device/list', { params }),
   createDevice: (data = {}) => request.post('/device/create', data),
@@ -63,6 +68,7 @@ export default {
   updateOta: (data = {}) => request.post('/resource/ota/update', data),
   deleteOta: (params = {}) => request.delete('/resource/ota/delete', { params }),
   uploadOtaFile: (data = {}) => request.post('/resource/ota/file', data, { timeout: 120000 }),
+
   // user-order
   getOrderList: (params = {}) => request.get('/order/list', { params }),
   createOrder: (data = {}) => request.post('/order/create', data),

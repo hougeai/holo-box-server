@@ -1,4 +1,4 @@
-from models.agent import Agent, AgentTemplate, Voice, Profile
+from models.agent import Agent, AgentTemplate, Voice, Profile, SystemPrompt
 from schemas.agent import (
     AgentCreate,
     AgentUpdate,
@@ -8,6 +8,8 @@ from schemas.agent import (
     VoiceUpdate,
     ProfileCreate,
     ProfileUpdate,
+    SystemPromptCreate,
+    SystemPromptUpdate,
 )
 
 from .crud import CRUDBase
@@ -43,3 +45,11 @@ class ProfileController(CRUDBase[Profile, ProfileCreate, ProfileUpdate]):
 
 
 profile_controller = ProfileController()
+
+
+class SystemPromptController(CRUDBase[SystemPrompt, SystemPromptCreate, SystemPromptUpdate]):
+    def __init__(self):
+        super().__init__(model=SystemPrompt)
+
+
+system_prompt_controller = SystemPromptController()

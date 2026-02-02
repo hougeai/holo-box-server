@@ -21,6 +21,7 @@ class AgentTemplateCreate(BaseModel):
     profile_id: Optional[int] = Field(default=None, description='形象ID')
     public: Optional[bool] = Field(default=False, description='是否公开')
     desc: Optional[str] = Field(default=None, description='智能体的功能特性描述')
+    system_prompt: Optional[str] = Field(default=None, description='系统提示词-管理员添加')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
@@ -53,6 +54,7 @@ class AgentCreate(BaseModel):
     source: Optional[str] = Field(default=None, description='创建来源')
     avatar: Optional[str] = Field(default=None, description='头像')
     profile_id: Optional[int] = Field(default=None, description='形象ID')
+    system_prompt: Optional[str] = Field(default=None, description='系统提示词-管理员添加')
 
 
 class AgentUpdate(AgentCreate):
@@ -116,3 +118,16 @@ class ProfileVidGen(BaseModel):
     id: int = Field(description='形象ID')
     method: str = Field(description='生成方式，支持 bailian')
     emotion: Optional[str] = Field(default=None, description='表情')
+
+
+# ========== SystemPrompt ==========
+class SystemPromptCreate(BaseModel):
+    user_id: str = Field(description='用户ID')
+    name: str = Field(description='系统提示词名称')
+    content: Optional[str] = Field(default=None, description='系统提示词内容')
+
+
+class SystemPromptUpdate(SystemPromptCreate):
+    id: int = Field(description='ID')
+    user_id: Optional[str] = Field(default=None, description='用户ID')
+    name: Optional[str] = Field(default=None, description='系统提示词名称')

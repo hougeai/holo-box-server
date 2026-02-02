@@ -51,6 +51,8 @@ const llmList = ref([])
 const voiceList = ref([])
 // 形象列表
 const profileList = ref([])
+// 系统提示词列表
+const sysPromptList = ref([])
 // 当前播放的音频 URL
 const currentPlayingAudio = ref(null)
 // 获取LLM列表
@@ -87,6 +89,18 @@ const fetchProfileList = async () => {
     console.error('获取形象列表失败:', error)
   }
 }
+// 获取系统提示词列表
+const fetchSysPromptList = async () => {
+  try {
+    const res = await api.getSysPromptList()
+    if (res.data) {
+      sysPromptList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取系统提示词列表失败:', error)
+  }
+}
+
 // 试听音频
 let currentAudioInstance = null
 const handlePlayAudio = (voiceDemo) => {
@@ -229,7 +243,7 @@ watch(
 
 onMounted(async () => {
   $table.value?.handleSearch()
-  await Promise.all([fetchLlmList(), fetchVoiceList(), fetchProfileList()])
+  await Promise.all([fetchLlmList(), fetchVoiceList(), fetchProfileList(), fetchSysPromptList()])
 })
 
 const columns = [
@@ -393,6 +407,7 @@ const columns = [
                     size: 'small',
                     type: 'error',
                     style: 'margin-right: 8px;',
+                    loading: modalLoading.value,
                   },
                   {
                     icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
@@ -506,8 +521,24 @@ const columns = [
             :rows="4"
             clearable
             placeholder="请输入角色提示词"
-            maxlength="2000"
+            maxlength="1000"
             show-count
+          />
+        </NFormItem>
+        <NFormItem
+          label="系统提示词"
+          path="system_prompt"
+          :rule="{
+            required: true,
+            message: '请选择系统提示词',
+            trigger: ['change', 'blur'],
+          }"
+        >
+          <NSelect
+            v-model:value="modalForm.system_prompt"
+            :options="sysPromptList.map((item) => ({ label: item.name, value: item.content }))"
+            placeholder="请选择系统提示词"
+            clearable
           />
         </NFormItem>
         <NFormItem
@@ -626,11 +657,10 @@ const columns = [
         <NFormItem label="功能描述" path="desc">
           <NInput
             v-model:value="modalForm.desc"
-            type="textarea"
-            :rows="2"
+            type="text"
             clearable
             placeholder="请输入功能描述"
-            maxlength="2000"
+            maxlength="200"
             show-count
           />
         </NFormItem>

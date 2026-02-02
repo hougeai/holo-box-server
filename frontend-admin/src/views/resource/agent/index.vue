@@ -46,6 +46,7 @@ const {
     memory_type: 'SHORT_TERM',
     profile_id: null,
     avatar: '',
+    system_prompt: '',
   },
   doCreate: api.createAgent,
   doUpdate: api.updateAgent,
@@ -127,6 +128,7 @@ const handleSelectTemplate = (templateAgentId) => {
     modalForm.value.asr_speed = template.asr_speed || 'normal'
     modalForm.value.tts_pitch = template.tts_pitch || 0
     modalForm.value.profile_id = template.profile_id || null
+    modalForm.value.system_prompt = template.system_prompt || ''
   } else if (templateAgentId === null) {
     // 如果选择了"不使用模板"，重置表单为初始值
     modalForm.value.agent_template_id = null
@@ -140,6 +142,7 @@ const handleSelectTemplate = (templateAgentId) => {
     modalForm.value.asr_speed = 'normal'
     modalForm.value.tts_pitch = 0
     modalForm.value.profile_id = null
+    modalForm.value.system_prompt = ''
   }
 }
 
@@ -360,6 +363,13 @@ const columns = [
     },
   },
   {
+    title: '系统提示词',
+    key: 'system_prompt',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
     title: '设备绑定量',
     key: 'device_count',
     width: 30,
@@ -429,6 +439,7 @@ const columns = [
                     size: 'small',
                     type: 'error',
                     style: 'margin-right: 8px;',
+                    loading: modalLoading.value,
                   },
                   {
                     icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
@@ -559,7 +570,7 @@ const columns = [
             :rows="4"
             clearable
             placeholder="请输入角色提示词"
-            maxlength="2000"
+            maxlength="1000"
             show-count
           />
         </NFormItem>

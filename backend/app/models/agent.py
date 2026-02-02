@@ -19,6 +19,7 @@ class AgentTemplate(BaseModel, TimestampMixin):
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
     public = fields.BooleanField(default=False, null=True, description='是否公开')
     desc = fields.TextField(null=True, description='智能体的功能特性描述')
+    system_prompt = fields.TextField(null=True, description='系统提示词-管理员添加')
 
 
 # agent表
@@ -44,6 +45,7 @@ class Agent(BaseModel, TimestampMixin):
     source = fields.CharField(max_length=64, null=True, index=True, description='创建来源')
     avatar = fields.TextField(null=True, description='头像')
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
+    system_prompt = fields.TextField(null=True, description='系统提示词-管理员添加')
 
 
 # LLM表
@@ -77,3 +79,10 @@ class Profile(BaseModel, TimestampMixin):
     public = fields.BooleanField(default=False, description='是否公开')
     method = fields.CharField(max_length=36, null=True, index=True, description='生成方式')
     status = fields.CharField(max_length=36, null=True, index=True, description='形象状态')
+
+
+# 系统提示词表
+class SystemPrompt(BaseModel, TimestampMixin):
+    user_id = fields.CharField(max_length=12, null=True, index=True, description='用户ID')
+    name = fields.CharField(max_length=64, null=True, index=True, description='系统提示词名称')
+    content = fields.TextField(null=True, description='系统提示词内容')

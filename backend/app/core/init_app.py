@@ -238,6 +238,17 @@ async def init_menus():
             component='/resource/ota',
             keepalive=False,
         ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='系统提示词',
+            path='sysPrompt',
+            order=8,
+            parent_id=parent_menu.id,
+            icon='material-symbols:devices',
+            hidden=False,
+            component='/resource/sysPrompt',
+            keepalive=False,
+        ),
     ]
     await Menu.bulk_create(children_menu)
 
