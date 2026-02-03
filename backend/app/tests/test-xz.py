@@ -21,21 +21,7 @@ def get_token():
 
 def test_agent():
     # response = client.get('/api/agents', params={'page': 1, 'pageSize': 100}, headers=headers)
-    # response = client.get('/api/agents/1359699', headers=headers)
-    data = {
-        # "agent_name": "test测试",
-        # "assistant_name": "小智",
-        # "llm_model": "qwen",
-        # "tts_voice": "zh_female_wanwanxiaohe_moon_bigtts",
-        # "tts_speech_speed": "normal",
-        # "tts_pitch": 0,
-        # "asr_speed": "normal",
-        # "language": "zh",
-        # "character": "角色介绍...",
-        # "memory_type": "SHORT_TERM",
-        'id': 1359699
-    }
-    response = client.post('/api/agents/delete', json=data, headers=headers)
+    response = client.get('/api/agents/1414036', headers=headers)
     print(response.status_code)
     with open('0.json', 'w', encoding='utf-8') as f:
         f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
@@ -66,8 +52,17 @@ def test_mcp():
     print(response.json())
 
 
+def test_product():
+    response = client.get('/api/developers/products/list', headers=headers)
+    print(response.status_code)
+    with open('0product.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
+
+
 if __name__ == '__main__':
     # get_token()
+    # test_agent()
     # test_device()
     # test_agentTemplate()
-    test_mcp()
+    # test_mcp()
+    test_product()

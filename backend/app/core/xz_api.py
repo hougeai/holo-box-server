@@ -130,9 +130,9 @@ class XZService:
         if obj_in.memory_type:
             data['memory_type'] = obj_in.memory_type  # "OFF"、"SHORT_TERM"
         if obj_in.mcp_endpoints:
-            data['mcp_endpoints'] = obj_in.mcp_endpoints  # 查看 官方MCP 工具接口
+            data['mcp_endpoints'] = obj_in.mcp_endpoints
         url = f'{self.base_url}/api/agents/{id}/config'
-        return await self._make_request('PUT', url, json=data)
+        return await self._make_request('POST', url, json=data)
 
     async def delete_agent(self, id):
         """删除智能体"""

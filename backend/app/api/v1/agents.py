@@ -488,15 +488,15 @@ async def list_mcp_tool(
     page_size: int = Query(999, description='每页数量'),
     name: Optional[str] = Query('', description='名称，用于搜索'),
     source: Optional[str] = Query('', description='创建来源'),
-    enabled: Optional[bool] = Query(None, description='是否启用'),
+    public: Optional[bool] = Query(None, description='是否公开，用户前端传入true'),
 ):
     q = Q()
     if name:
         q &= Q(name__icontains=name)
     if source:
         q &= Q(source=source)
-    if enabled is not None:
-        q &= Q(enabled=enabled)
+    if public is not None:
+        q &= Q(public=public)
     total, objs = await mcp_tool_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)

@@ -47,6 +47,7 @@ const {
     profile_id: null,
     avatar: '',
     system_prompt: '',
+    mcp_endpoints: [],
   },
   doCreate: api.createAgent,
   doUpdate: api.updateAgent,
@@ -60,6 +61,9 @@ const llmList = ref([])
 const voiceList = ref([])
 // 形象列表
 const profileList = ref([])
+// MCP端点列表
+const mcpList = ref([])
+
 // AgentTemplate列表
 const agentTemplateList = ref([])
 // 当前播放的音频 URL
@@ -98,6 +102,18 @@ const fetchProfileList = async () => {
     }
   } catch (error) {
     console.error('获取形象列表失败:', error)
+  }
+}
+
+// 获取MCP端点列表
+const fetchMcpList = async () => {
+  try {
+    const res = await api.getMcpToolList({ public: true })
+    if (res.data) {
+      mcpList.value = res.data
+    }
+  } catch (error) {
+    console.error('获取MCP端点列表失败:', error)
   }
 }
 
@@ -264,6 +280,14 @@ const profileOptions = computed(() => {
   }))
 })
 
+// MCP选项（用于下拉框）
+const mcpOptions = computed(() => {
+  return mcpList.value.map((mcp) => ({
+    label: mcp.name,
+    value: mcp.endpoint_id,
+  }))
+})
+
 // 当前选中的profile对应的gen_img
 const currentProfileGenImg = computed(() => {
   const profile = profileList.value.find((p) => p.id === modalForm.value.profile_id)
@@ -288,6 +312,7 @@ onMounted(async () => {
     fetchLlmList(),
     fetchVoiceList(),
     fetchProfileList(),
+    fetchMcpList(),
     fetchAgentTemplateList(),
   ])
 })
@@ -368,6 +393,21 @@ const columns = [
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
+  },
+  {
+    title: 'MCP端点',
+    key: 'mcp_endpoints',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+    render(row) {
+      const endpoints =
+        typeof row.mcp_endpoints === 'string' ? JSON.parse(row.mcp_endpoints) : row.mcp_endpoints
+      if (Array.isArray(endpoints) && endpoints.length > 0) {
+        return endpoints.join(', ')
+      }
+      return '-'
+    },
   },
   {
     title: '设备绑定量',
@@ -693,6 +733,16 @@ const columns = [
             </div>
           </NFormItem>
         </div>
+        <NFormItem label="MCP工具" class="flex-1">
+          <NSelect
+            v-model:value="modalForm.mcp_endpoints"
+            :options="mcpOptions"
+            placeholder="请选择MCP工具（可多选）"
+            multiple
+            clearable
+            filterable
+          />
+        </NFormItem>
       </NForm>
     </CrudModal>
   </CommonPage>
