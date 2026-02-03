@@ -111,6 +111,21 @@ onMounted(async () => {
   $table.value?.handleSearch()
 })
 
+// 启动/停止 MCP 服务
+async function handleToggleService(row) {
+  const action = row.status === 'running' ? 'stop' : 'start'
+  const actionName = action === 'stop' ? '停止' : '启动'
+  const actionApi = action === 'stop' ? api.stopMcpTool : api.startMcpTool
+
+  try {
+    await actionApi({ id: row.id })
+    $message.success(`${actionName}MCP服务成功`)
+    $table.value?.handleSearch()
+  } catch (error) {
+    $message.error(`${actionName}MCP服务失败: ${error.message}`)
+  }
+}
+
 const columns = [
   {
     title: 'ID',
@@ -120,43 +135,29 @@ const columns = [
     ellipsis: { tooltip: true },
   },
   {
-    title: 'MCP端点ID',
+    title: '端点ID',
     key: 'endpoint_id',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
   },
   {
-    title: 'MCP名称',
+    title: '名称',
     key: 'name',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
   },
   {
-    title: 'MCP描述',
+    title: '描述',
     key: 'description',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
   },
   {
-    title: 'MCP来源',
+    title: '来源',
     key: 'source',
-    width: 30,
-    align: 'center',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'Token',
-    key: 'token',
-    width: 30,
-    align: 'center',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: '是否启用',
-    key: 'enabled',
     width: 30,
     align: 'center',
     render(row) {
@@ -164,13 +165,20 @@ const columns = [
         NTag,
         {
           size: 'small',
-          type: row.enabled ? 'error' : 'success',
+          type: row.source === 'product' ? 'success' : 'info',
         },
         {
-          default: () => (row.enabled ? '是' : '否'),
+          default: () => row.source || '-',
         },
       )
     },
+  },
+  {
+    title: 'Token',
+    key: 'token',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
   },
   {
     title: '是否公开',
@@ -237,6 +245,24 @@ const columns = [
     },
   },
   {
+    title: '服务状态',
+    key: 'status',
+    width: 30,
+    align: 'center',
+    render(row) {
+      return h(
+        NTag,
+        {
+          size: 'small',
+          type: row.status === 'running' ? 'success' : 'error',
+        },
+        {
+          default: () => row.status || '-',
+        },
+      )
+    },
+  },
+  {
     title: '创建时间',
     key: 'create_at',
     width: 60,
@@ -259,6 +285,11 @@ const columns = [
     align: 'center',
     fixed: 'right',
     render(row) {
+      // 官方 MCP 不显示操作按钮
+      if (row.source === 'official') {
+        return []
+      }
+
       return [
         withDirectives(
           h(
@@ -276,6 +307,34 @@ const columns = [
             },
           ),
           [[vPermission, 'post/api/v1/agent/mcp-tool/update']],
+        ),
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => handleToggleService(row),
+            onNegativeClick: () => {},
+          },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  size: 'small',
+                  type: row.status === 'running' ? 'warning' : 'success',
+                  style: 'margin-right: 8px;',
+                },
+                {
+                  icon: renderIcon(
+                    row.status === 'running'
+                      ? 'material-symbols:stop-circle'
+                      : 'material-symbols:play-circle',
+                    { size: 16 },
+                  ),
+                },
+              ),
+            default: () =>
+              h('div', {}, row.status === 'running' ? '确定停止服务吗?' : '确定启动服务吗?'),
+          },
         ),
         h(
           NPopconfirm,

@@ -101,3 +101,4 @@ class McpTool(BaseModel, TimestampMixin):
     public = fields.BooleanField(default=False, description='是否公开')
     protocol = fields.CharEnumField(McpProtocol, null=True, description='协议类型')
     config = fields.JSONField(null=True, description='配置文件')
+    status = fields.CharField(max_length=12, null=True, index=True, description='服务状态')

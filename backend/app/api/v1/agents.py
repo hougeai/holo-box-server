@@ -9,6 +9,7 @@ from core.xz_api import xz_service
 from core.profile_api import bl_service
 from core.minio import oss
 from core.config import settings
+from core.mcp_manager import mcp_manager
 from controllers import (
     agent_controller,
     agent_template_controller,
@@ -508,6 +509,12 @@ async def create_mcp_tool(
     obj = await McpTool.filter(name=obj_in.name).first()
     if obj:
         return Fail(code=400, msg=f'MCP已存在: {obj.name}')
+    # 检查 protocol 和 config 是否有效
+    if not obj_in.protocol or not obj_in.config:
+        return Fail(code=400, msg='请填写正确的protocol和config')
+    ok, msg = await mcp_manager.test(obj_in)
+    if not ok:
+        return Fail(code=400, msg=f'MCP测试失败: {msg}')
     # 请求xz-service创建MCP
     res = await xz_service.create_mcp(obj_in.name, obj_in.description)
     if not res or not res['success']:
@@ -520,7 +527,17 @@ async def create_mcp_tool(
     if not res or not res['success']:
         logger.error(f'创建MCP Token失败: {res.get("message", "")}')
         return Fail(code=400, msg=f'云端创建MCP Token失败: {res.get("message", "")}')
-    obj_in.token = res.get('token', '')
+    token = res.get('token', '')
+    if not token:
+        return Fail(code=400, msg='创建MCP Token失败')
+    obj_in.token = token
+    mcp = obj_in.model_dump()
+    # 创建mcp连接
+    ok, msg = await mcp_manager.connect(mcp)
+    if not ok:
+        return Fail(code=400, msg=f'重启MCP服务失败: {msg}')
+    result = mcp_manager.get_connection_status(mcp.get('endpoint_id'))
+    obj_in.status = result.get('status', '')
     obj = await mcp_tool_controller.create(obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -534,13 +551,33 @@ async def update_mcp_tool(
     if not obj:
         return Fail(code=400, msg='MCP不存在')
     update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
-    local_only_fields = {'source', 'public'}
+    local_only_fields = {'source', 'public', 'protocol', 'config', 'status'}
     has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
         res = await xz_service.update_mcp(obj_in)
         if not res or not res['success']:
             return Fail(code=400, msg=f'云端更新失败: {res.get("message", "")}')
+    # 重启服务：要判断 protocol 和 config 是否有变化
+    need_restart = False
+    if 'protocol' in update_data and obj.protocol != obj_in.protocol:
+        need_restart = True
+    if 'config' in update_data and obj.config != obj_in.config:
+        need_restart = True
+    if need_restart:
+        mcp = {
+            'name': obj.name,
+            'endpoint_id': obj.endpoint_id,
+            'token': obj.token,
+            'protocol': obj_in.protocol,
+            'config': obj_in.config,
+        }
+        ok, msg = await mcp_manager.connect(mcp)
+        if not ok:
+            return Fail(code=400, msg=f'重启MCP服务失败: {msg}')
+        result = mcp_manager.get_connection_status(mcp.get('endpoint_id'))
+        obj_in.status = result.get('status', '')
+        logger.info(f'重启MCP服务: {obj.endpoint_id}-{obj.name}')
     obj = await mcp_tool_controller.update(id=obj.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -553,13 +590,43 @@ async def delete_mcp_tool(
     obj = await mcp_tool_controller.get(id=id)
     if not obj:
         return Fail(code=400, msg='MCP不存在')
-    # 先删除xz-service的MCP
+    # 删除manager中的服务
+    mcp = await obj.to_dict()
+    await mcp_manager.disconnect(mcp)
+    # 删除xz-service的MCP
     res = await xz_service.delete_mcp(obj.endpoint_id)
     if not res or not res['success']:
         logger.error(f'删除MCP失败: {res.get("message", "")}')
         return Fail(code=400, msg=f'云端删除MCP失败: {res.get("message", "")}')
     await mcp_tool_controller.remove(id=id)
     return Success(msg='删除成功')
+
+
+@router.post('/mcp-tool/start', summary='启动MCP服务')
+async def start_mcp_tool(obj_in: McpToolUpdate):
+    obj = await mcp_tool_controller.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='MCP不存在')
+    mcp = await obj.to_dict()
+    ok, msg = await mcp_manager.connect(mcp)
+    if not ok:
+        return Fail(code=400, msg=f'MCP服务启动失败: {msg}')
+    result = mcp_manager.get_connection_status(mcp.get('endpoint_id'))
+    await mcp_tool_controller.update(id=obj_in.id, obj_in={'status': result.get('status')})
+    logger.info(f'启动MCP服务: {obj.endpoint_id}-{obj.name}')
+    return Success(msg='MCP服务已启动')
+
+
+@router.post('/mcp-tool/stop', summary='停止MCP服务')
+async def stop_mcp_tool(obj_in: McpToolUpdate):
+    obj = await mcp_tool_controller.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='MCP不存在')
+    mcp = await obj.to_dict()
+    await mcp_manager.disconnect(mcp)
+    await mcp_tool_controller.update(id=obj_in.id, obj_in={'status': 'uncreated'})
+    logger.info(f'停止MCP服务: {obj.endpoint_id}-{obj.name}')
+    return Success(msg='MCP服务已停止')
 
 
 # 音色克隆相关

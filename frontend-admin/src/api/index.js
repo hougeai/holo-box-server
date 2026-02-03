@@ -60,6 +60,8 @@ export default {
   createMcpTool: (data = {}) => request.post('/agent/mcp-tool/create', data),
   updateMcpTool: (data = {}) => request.post('/agent/mcp-tool/update', data),
   deleteMcpTool: (params = {}) => request.delete('/agent/mcp-tool/delete', { params }),
+  startMcpTool: (data = {}) => request.post('/agent/mcp-tool/start', data),
+  stopMcpTool: (data = {}) => request.post('/agent/mcp-tool/stop', data),
   // resource-device
   getDeviceList: (params = {}) => request.get('/device/list', { params }),
   createDevice: (data = {}) => request.post('/device/create', data),

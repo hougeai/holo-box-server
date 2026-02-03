@@ -1,4 +1,5 @@
 import shutil
+import asyncio
 from aerich import Command
 from fastapi import FastAPI
 from fastapi.middleware import Middleware
@@ -28,6 +29,7 @@ from .log import logger
 from .config import settings
 from .middlewares import BackGroundTaskMiddleware, HttpAuditLogMiddleware, OTACORSMiddleware
 from .xz_api import xz_service
+from .mcp_manager import mcp_manager
 
 
 def make_middlewares():
@@ -569,6 +571,15 @@ async def init_mcps():
                 )
             )
         await McpTool.bulk_create(objs)
+    # 产品MCP还要添加到manager中启动
+    mcps = await McpTool.filter(source='product').all()
+    for mcp in mcps:
+        data = await mcp.to_dict()
+        status, msg = await mcp_manager.connect(data)
+        if status:
+            logger.info(f'MCP {mcp.name} connected successfully')
+        else:
+            logger.error(f'MCP {mcp.name} connect failed: {msg}')
 
 
 async def init_data(app: FastAPI):
@@ -584,3 +595,23 @@ async def init_data(app: FastAPI):
     await init_llm()
     await init_voices()
     await init_mcps()
+
+
+async def check_mcp_status_periodically(check_interval=60):
+    """定期检查 MCP 连接状态并更新数据库"""
+    logger.info('Starting MCP status check task')
+    while True:
+        await asyncio.sleep(check_interval)
+        try:
+            mcps = await McpTool.filter(source='product')
+            for mcp in mcps:
+                status_info = mcp_manager.get_connection_status(mcp.endpoint_id)
+                new_status = status_info['status']
+                # 只在状态变化时更新
+                if mcp.status != new_status:
+                    mcp.status = new_status
+                    await mcp.save()
+                    logger.info(f'MCP {mcp.name} status updated to {new_status}')
+            logger.info('MCP status check completed')
+        except Exception as e:
+            logger.error(f'Error checking MCP status: {e}')

@@ -144,6 +144,7 @@ class McpToolCreate(BaseModel):
     public: Optional[bool] = Field(default=False, description='是否公开')
     protocol: Optional[str] = Field(default=None, description='协议类型')
     config: Optional[dict] = Field(default=None, description='配置文件')
+    status: Optional[str] = Field(default=None, description='服务状态')
 
 
 class McpToolUpdate(McpToolCreate):

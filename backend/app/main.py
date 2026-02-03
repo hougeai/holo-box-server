@@ -6,6 +6,7 @@ This software contains proprietary information of XiaozhiPro.
 Unauthorized copying, distribution or use of this software is strictly prohibited.
 """
 
+import asyncio
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
@@ -13,7 +14,13 @@ from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.staticfiles import StaticFiles
 from tortoise import Tortoise
-from core.init_app import init_data, make_middlewares, register_exceptions, register_routers
+from core.init_app import (
+    init_data,
+    make_middlewares,
+    register_exceptions,
+    register_routers,
+    check_mcp_status_periodically,
+)
 from core.config import settings
 from core.log import logger
 
@@ -34,9 +41,21 @@ for name in ('uvicorn', 'uvicorn.access'):
 async def lifespan(app: FastAPI):
     # 1. 应用启动前的操作
     await init_data(app)
+
+    # 启动 MCP 状态检查后台任务
+    check_task = asyncio.create_task(check_mcp_status_periodically())
+
     # 2. yield 表示应用正常运行阶段
     yield
+
     # 3. 应用关闭时的操作
+    # 取消后台任务
+    check_task.cancel()
+    try:
+        await check_task
+    except asyncio.CancelledError:
+        pass
+
     await Tortoise.close_connections()
 
 
