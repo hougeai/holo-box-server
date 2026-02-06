@@ -106,6 +106,11 @@ async def unbind_device(
 
 @router.post('/bind', summary='绑定设备')
 async def bind_device(obj_in: DeviceBind):
+    # 判断 user_id 和 agent_id 是否匹配
+    if obj_in.agent_id:
+        agent = await Agent.filter(user_id=obj_in.user_id, agent_id=obj_in.agent_id).first()
+        if not agent:
+            return Fail(code=400, msg=f'用户无权限操作当前智能体：{obj_in.agent_id}')
     res = await xz_service.bind_device(agentId=obj_in.agent_id, verificationCode=obj_in.code)
     if not res or not res['success']:
         msg = res.get('message', '') if res else '未知'

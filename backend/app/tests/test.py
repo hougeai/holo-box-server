@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,14 +29,14 @@ def test_ota():
     import requests
 
     headers = {
-        'Device-Id': '98:3d:ae:e6:83:d0',
+        'Device-Id': '30:ed:a0:2b:69:94',
     }
     data = {
         'version': 2,
         'language': 'zh-CN',
         'flash_size': 16777216,
         'minimum_free_heap_size': 8275968,
-        'mac_address': '98:3d:ae:e6:83:d0',
+        'mac_address': '30:ed:a0:2b:69:94',
         'uuid': 'aa4ad1e9-0299-4880-9b0d-b96ea0a2bf3e',
         'chip_model_name': 'esp32s3',
         'chip_info': {'model': 9, 'cores': 2, 'revision': 2, 'features': 18},
@@ -56,8 +57,10 @@ def test_ota():
             'mac': '98:3d:ae:e6:83:d0',
         },
     }
-    response = requests.post('http://localhost:3004/ota', headers=headers, json=data)
-    print(response.json(), response.status_code)
+    response = requests.post('https://test-box.wentouzhiying.com/ota', headers=headers, json=data)
+    print(response.status_code)
+    with open('0ota.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
 
 
 def test_oss():
@@ -99,10 +102,10 @@ async def test_profile():
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
-    # test_ota()
+    test_ota()
     # test_template()
-    import asyncio
+    # import asyncio
 
-    asyncio.run(test_xz())
+    # asyncio.run(test_xz())
     # asyncio.run(test_wx())
     # asyncio.run(test_profile())
