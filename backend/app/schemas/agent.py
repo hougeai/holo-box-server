@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, Field
+from models.enums import SubjectType
 
 # ========== AgentTemplate ==========
 
@@ -109,6 +110,7 @@ class ProfileCreate(BaseModel):
     public: Optional[bool] = Field(default=None, description='是否公开')
     method: Optional[str] = Field(default=None, description='生成方式，支持 bailian')
     status: Optional[str] = Field(default=None, description='形象状态')
+    subject_type: Optional[SubjectType] = Field(default=None, description='形象主体类型')
 
 
 class ProfileUpdate(ProfileCreate): ...

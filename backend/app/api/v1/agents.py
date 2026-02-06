@@ -272,6 +272,7 @@ async def upload_img(
     name: str = Form(..., description='形象名称'),
     ori_img: UploadFile = File(...),
     ret_gen_img: bool = Form(True, description='是否生成形象图片'),
+    subject_type: str = Form('human', description='形象主体类型：human/animal等'),
 ):
     user_id = CTX_USER_ID.get()
     obj = await Profile.filter(user_id=user_id, name=name).first()
@@ -287,6 +288,7 @@ async def upload_img(
         user_id=user_id,
         name=name,
         status='pending',
+        subject_type=subject_type,
     )
     suffix = hashlib.sha256(f'{obj.id}-ori'.encode()).hexdigest()[:4]
     ori_img_key = f'profile/img/{obj.id}-ori-img-{suffix}.png'
@@ -298,7 +300,7 @@ async def upload_img(
     ori_img_url = f'{settings.OSS_BUCKET_URL}/{ori_img_key}'
     obj.ori_img = ori_img_url
     if ret_gen_img:
-        gen_img_url, msg = await bl_service.generate_image(ori_img_url)
+        gen_img_url, msg = await bl_service.generate_image(ori_img_url, subject_type)
         if not gen_img_url:
             logger.error(f'生成形象图片失败: {msg}')
             await profile_controller.remove(id=obj.id)
@@ -333,7 +335,7 @@ async def generate_vid(
     obj.method = obj_in.method
     if obj_in.method == 'bailian':
         await BgTasks.add_task(
-            bl_service.generate_and_save, obj.id, obj.gen_img, 2
+            bl_service.generate_and_save, obj.id, obj.gen_img, obj.subject_type, 2
         )  # 响应返回前端之后，fastapi会自动执行这个后台任务
         obj.status = 'processing'
         await obj.save()
@@ -352,7 +354,7 @@ async def generate_vid_edit(
         return Fail(code=400, msg='请先创建形象第一步获取形象id')
     # 根据不同方法创建形象
     if obj_in.method == 'bailian':
-        video_url, msg = await bl_service.generate_video(obj.gen_img, emotion=obj_in.emotion)
+        video_url, msg = await bl_service.generate_video(obj.gen_img, obj.subject_type, emotion=obj_in.emotion)
         if not video_url:
             logger.error(f'生成形象视频失败: {msg}')
             return Fail(code=400, msg=f'生成形象视频失败: {msg}')

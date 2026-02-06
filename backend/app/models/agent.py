@@ -1,6 +1,6 @@
 from tortoise import fields
 from .base import BaseModel, TimestampMixin
-from .enums import McpProtocol
+from .enums import McpProtocol, SubjectType
 
 
 # agent模板：和agent对齐，改造xiaozhi-api返回结果进行适配
@@ -81,6 +81,7 @@ class Profile(BaseModel, TimestampMixin):
     public = fields.BooleanField(default=False, description='是否公开')
     method = fields.CharField(max_length=36, null=True, index=True, description='生成方式')
     status = fields.CharField(max_length=36, null=True, index=True, description='形象状态')
+    subject_type = fields.CharEnumField(SubjectType, default=SubjectType.HUMAN, index=True, description='主体类型')
 
 
 # 系统提示词表

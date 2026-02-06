@@ -3,6 +3,8 @@ import { h, onMounted, ref, resolveDirective, withDirectives, onBeforeUnmount, c
 import {
   NButton,
   NInput,
+  NRadio,
+  NRadioGroup,
   NPopconfirm,
   NPopover,
   NTag,
@@ -49,6 +51,7 @@ const activeTab = ref('upload')
 // 用户上传方式状态
 const uploadForm = ref({
   name: '',
+  subjectType: 'human',
   uploadingImg: false,
   uploadingVideo: false,
   profileId: null,
@@ -59,9 +62,12 @@ const uploadForm = ref({
   selectedVideos: {},
 })
 
+// 主体类型选项
+
 // AIGC生成方式状态
 const aigcForm = ref({
   name: '',
+  subjectType: 'human',
   uploadingImg: false,
   profileId: null,
   oriImgUrl: null,
@@ -122,6 +128,7 @@ const openCreateModal = () => {
 const resetUploadForm = () => {
   uploadForm.value = {
     name: '',
+    subjectType: 'human',
     uploadingImg: false,
     uploadingVideo: false,
     profileId: null,
@@ -136,6 +143,7 @@ const resetUploadForm = () => {
 const resetAigcForm = () => {
   aigcForm.value = {
     name: '',
+    subjectType: 'human',
     uploadingImg: false,
     profileId: null,
     oriImgUrl: null,
@@ -168,6 +176,7 @@ const handleUploadOriImg = async () => {
   formData.append('name', uploadForm.value.name)
   formData.append('ori_img', uploadForm.value.oriImgFile)
   formData.append('ret_gen_img', true)
+  formData.append('subject_type', uploadForm.value.subjectType)
 
   try {
     uploadForm.value.uploadingImg = true
@@ -295,6 +304,7 @@ const handleAIGCUploadOriImg = async () => {
   formData.append('name', aigcForm.value.name)
   formData.append('ori_img', aigcForm.value.oriImgFile)
   formData.append('ret_gen_img', true)
+  formData.append('subject_type', aigcForm.value.subjectType)
 
   try {
     aigcForm.value.uploadingImg = true
@@ -481,6 +491,13 @@ const columns = [
   {
     title: '形象名称',
     key: 'name',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '主体类型',
+    key: 'subject_type',
     width: 30,
     align: 'center',
     ellipsis: { tooltip: true },
@@ -727,6 +744,15 @@ const columns = [
                 :disabled="!!uploadForm.profileId"
               />
             </NFormItem>
+            <NFormItem label="主体类型">
+              <NRadioGroup
+                v-model:value="uploadForm.subjectType"
+                :disabled="!!uploadForm.profileId"
+              >
+                <NRadio value="human">人物</NRadio>
+                <NRadio value="animal">动物</NRadio>
+              </NRadioGroup>
+            </NFormItem>
             <NFormItem label="原始图片">
               <div class="flex gap-4 items-start">
                 <div class="flex flex-col items-center">
@@ -825,6 +851,12 @@ const columns = [
                 placeholder="请输入形象名称"
                 :disabled="!!aigcForm.profileId"
               />
+            </NFormItem>
+            <NFormItem label="主体类型">
+              <NRadioGroup v-model:value="aigcForm.subjectType" :disabled="!!aigcForm.profileId">
+                <NRadio value="human">人物</NRadio>
+                <NRadio value="animal">动物</NRadio>
+              </NRadioGroup>
             </NFormItem>
             <NFormItem label="原始图片">
               <div class="flex gap-4 items-start">

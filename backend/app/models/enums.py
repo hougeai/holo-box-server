@@ -31,3 +31,8 @@ class McpProtocol(str, Enum):
     STDIO = 'stdio'
     SSE = 'sse'
     HTTP = 'http'
+
+
+class SubjectType(str, Enum):
+    HUMAN = 'human'
+    ANIMAL = 'animal'

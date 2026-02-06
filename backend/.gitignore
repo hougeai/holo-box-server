@@ -26,4 +26,5 @@ migrations/
 *.txt
 *.json
 !agent.json
+!profile.json
 .env
