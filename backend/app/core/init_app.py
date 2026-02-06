@@ -444,35 +444,35 @@ async def init_agent():
         await Agent.filter(agent_id__in=to_delete_ids).delete()
 
     # 需要创建的：在API中但不在数据库中
-    to_create_ids = api_agent_ids - existing_ids
-    if to_create_ids:
-        objs = [
-            Agent(
-                user_id='1',
-                agent_id=agent.get('id'),
-                agent_name=agent.get('agent_name'),
-                llm_model=agent.get('llm_model'),
-                tts_voice=agent.get('tts_voice'),
-                assistant_name=agent.get('assistant_name'),
-                user_name=agent.get('user_name'),
-                character=agent.get('character'),
-                memory=agent.get('memory'),
-                long_memory_switch=agent.get('long_memory_switch'),
-                memory_type=agent.get('memory_type'),
-                language=agent.get('language'),
-                tts_speech_speed=agent.get('tts_speech_speed'),
-                asr_speed=agent.get('asr_speed'),
-                tts_pitch=agent.get('tts_pitch'),
-                agent_template_id=agent.get('agent_template_id'),
-                mcp_endpoints=agent.get('mcp_endpoints'),
-                product_mcp_endpoints=agent.get('product_mcp_endpoints'),
-                device_count=agent.get('deviceCount'),
-                source=agent.get('source'),
-            )
-            for agent in agents
-            if agent.get('id') in to_create_ids
-        ]
-        await Agent.bulk_create(objs)
+    # to_create_ids = api_agent_ids - existing_ids
+    # if to_create_ids:
+    #     objs = [
+    #         Agent(
+    #             user_id='1',
+    #             agent_id=agent.get('id'),
+    #             agent_name=agent.get('agent_name'),
+    #             llm_model=agent.get('llm_model'),
+    #             tts_voice=agent.get('tts_voice'),
+    #             assistant_name=agent.get('assistant_name'),
+    #             user_name=agent.get('user_name'),
+    #             character=agent.get('character'),
+    #             memory=agent.get('memory'),
+    #             long_memory_switch=agent.get('long_memory_switch'),
+    #             memory_type=agent.get('memory_type'),
+    #             language=agent.get('language'),
+    #             tts_speech_speed=agent.get('tts_speech_speed'),
+    #             asr_speed=agent.get('asr_speed'),
+    #             tts_pitch=agent.get('tts_pitch'),
+    #             agent_template_id=agent.get('agent_template_id'),
+    #             mcp_endpoints=agent.get('mcp_endpoints'),
+    #             product_mcp_endpoints=agent.get('product_mcp_endpoints'),
+    #             device_count=agent.get('deviceCount'),
+    #             source=agent.get('source'),
+    #         )
+    #         for agent in agents
+    #         if agent.get('id') in to_create_ids
+    #     ]
+    #     await Agent.bulk_create(objs)
 
 
 async def init_llm():
