@@ -134,7 +134,7 @@ async def bind_device(obj_in: DeviceBind):
         res = await xz_service.get_agent(agent_id)
         if not res or not res['success']:
             msg = res.get('message', '') if res else '未知'
-            return Fail(code=400, msg=f'XZ-API获取智能体详情失败: {msg}')
+            return Fail(code=400, msg=f'服务端获取智能体详情失败: {msg}')
         agent = res['data'].get('agent')
         agent['agent_id'] = agent.pop('id', agent_id)
         agent['device_count'] = agent.pop('deviceCount', 0)

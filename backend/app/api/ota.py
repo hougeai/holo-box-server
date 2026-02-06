@@ -1,5 +1,3 @@
-import os
-import json
 import aiohttp
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -7,10 +5,31 @@ from core.log import logger
 from core.config import settings
 
 from controllers import device_controller
-from models import Ota
+from models import Ota, Agent, Profile
 from schemas import Fail
 
 router = APIRouter(tags=['OTA'])
+
+emoji_dict = {
+    'happy': [{'code': 'happy', 'emoji': '🙂'}, {'code': 'neutral', 'emoji': '😶'}],
+    'laugh': [{'code': 'laughing', 'emoji': '😆'}, {'code': 'funny', 'emoji': '😂'}],
+    'sad': [{'code': 'sad', 'emoji': '😔'}, {'code': 'crying', 'emoji': '😭'}],
+    'angry': [{'code': 'angry', 'emoji': '😠'}, {'code': 'silly', 'emoji': '😜'}],
+    'love': [{'code': 'loving', 'emoji': '😍'}, {'code': 'delicious', 'emoji': '🤤'}],
+    'embarrassed': [
+        {'code': 'embarrassed', 'emoji': '😳'},
+        {'code': 'surprised', 'emoji': '😲'},
+        {'code': 'shocked', 'emoji': '😱'},
+    ],
+    'thinking': [{'code': 'thinking', 'emoji': '🤔'}],
+    'playful': [{'code': 'cool', 'emoji': '😎'}, {'code': 'winking', 'emoji': '😉'}],
+    'calm': [
+        {'code': 'confident', 'emoji': '😏'},
+        {'code': 'kissy', 'emoji': '😘'},
+        {'code': 'relaxed', 'emoji': '😌'},
+    ],
+    'sleepy': [{'code': 'sleepy', 'emoji': '😴'}, {'code': 'confused', 'emoji': '🙄'}],
+}
 
 
 # OTA转发接口
@@ -49,15 +68,26 @@ async def ota(request: Request):
         logger.error(f'OTA转发失败: {e}')
         return Fail(code=400, msg=f'OTA转发失败: {e}')
 
-    # 增加形象视频
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    emoji_path = os.path.join(current_dir, '../0emoji.json')
-    with open(emoji_path, 'r', encoding='utf-8') as f:
-        emoji_data = json.load(f)
-    res_data['profile'] = emoji_data
     # 查询设备是否OTA，是否有新版本
     device = await device_controller.get_by_mac(mac_address)
     if device:
+        try:
+            # 如果存在agent_id，则增加形象视频
+            agent_id = device.agent_id
+            if agent_id:
+                agent = await Agent.filter(agent_id=agent_id).first()
+                profile = await Profile.get(id=agent.profile_id)
+                gen_vids = profile.gen_vids
+                # 转成设备需要的数据
+                results = []
+                for k, v in gen_vids.items():
+                    for item in emoji_dict[k]:
+                        item['url'] = v.get('url', '')
+                        item['hash'] = v.get('hash', '')
+                        results.append(item)
+                res_data['profile'] = results
+        except Exception as e:
+            logger.error(f'获取形象信息失败: {e}')
         # 设备已存在，更新设备信息
         await device_controller.update(id=device.id, obj_in={'app_version': ori_version})
         if not device.auto_update:

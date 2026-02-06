@@ -69,14 +69,14 @@ async def create_agent(
     if not res or not res.get('success'):
         msg = res.get('message', '') if res else '未知'
         logger.error(f'创建智能体失败: {msg}')
-        return Fail(code=400, msg=f'XZ-API创建失败: {msg}')
+        return Fail(code=400, msg=f'服务端创建失败: {msg}')
     obj_in.agent_id = str(res['data'].get('id'))  # 只返回id
     # 查询智能体详情
     res = await xz_service.get_agent(obj_in.agent_id)
     if not res or not res.get('success'):
         msg = res.get('message', '') if res else '未知'
         logger.error(f'获取智能体详情失败: {msg}')
-        return Fail(code=400, msg=f'XZ-API获取智能体详情失败: {msg}')
+        return Fail(code=400, msg=f'服务端获取智能体详情失败: {msg}')
     agent = res['data'].get('agent')
     obj_in.mcp_endpoints = agent.get('mcp_endpoints')
     obj_in.source = agent.get('source')
@@ -86,7 +86,7 @@ async def create_agent(
         if not res or not res.get('success'):
             msg = res.get('message', '') if res else '未知'
             logger.error(f'更新product_mcp_endpoints失败: {msg}')
-            return Fail(code=400, msg=f'XZ-API更新product_mcp_endpoints失败: {msg}')
+            return Fail(code=400, msg=f'服务端更新product_mcp_endpoints失败: {msg}')
     # 保存到数据库
     obj = await agent_controller.create(obj_in=obj_in)
     data = await obj.to_dict()
@@ -108,7 +108,7 @@ async def update_agent(
         res = await xz_service.update_agent(obj.agent_id, obj_in)
         if not res or not res.get('success'):
             msg = res.get('message', '') if res else '未知'
-            return Fail(code=400, msg=f'XZ-API更新失败: {msg}')
+            return Fail(code=400, msg=f'服务端更新失败: {msg}')
     obj = await agent_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -122,13 +122,13 @@ async def delete_agent(
     if not obj:
         return Fail(code=400, msg='Agent not found')
     # 先判断是否有设备绑定
-    if obj.device_count > 0:
-        return Fail(code=400, msg='请先解绑当前智能体下的所有设备')
+    # if obj.device_count > 0:
+    #     return Fail(code=400, msg='请先解绑当前智能体下的所有设备')
     # 先删除远端的
     res = await xz_service.delete_agent(obj.agent_id)
     if not res or not res.get('success'):
         msg = res.get('message', '') if res else '未知'
-        return Fail(code=400, msg=f'XZ-API删除失败: {msg}')
+        return Fail(code=400, msg=f'服务端删除失败: {msg}')
     await agent_controller.remove(id=id)
     return Success(msg='Deleted Successfully')
 
@@ -194,7 +194,7 @@ async def create_agent_template(
     if not res or not res.get('success'):
         msg = res.get('message', '') if res else '未知'
         logger.error(f'创建智能体模板失败: {msg}')
-        return Fail(code=400, msg=f'XZ-API创建失败: {msg}')
+        return Fail(code=400, msg=f'服务端创建失败: {msg}')
     obj_in.agent_id = str(res['data'].get('id'))
     obj = await agent_template_controller.create(obj_in=obj_in)
     data = await obj.to_dict()
@@ -216,7 +216,7 @@ async def update_agent_template(
         res = await xz_service.update_agent_template(obj.agent_id, obj_in)
         if not res or not res.get('success'):
             msg = res.get('message', '') if res else '未知'
-            return Fail(code=400, msg=f'XZ-API更新失败： {msg}')
+            return Fail(code=400, msg=f'服务端更新失败： {msg}')
     obj = await agent_template_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -233,7 +233,7 @@ async def delete_agent_template(
     res = await xz_service.delete_agent_template(obj.agent_id)
     if not res or not res.get('success'):
         msg = res.get('message', '') if res else '未知'
-        return Fail(code=400, msg=f'XZ-API删除失败: {msg}')
+        return Fail(code=400, msg=f'服务端删除失败: {msg}')
     await agent_template_controller.remove(id=id)
     return Success(msg='Deleted Successfully')
 
