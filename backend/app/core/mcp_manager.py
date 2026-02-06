@@ -25,7 +25,7 @@ def build_server_command(protocol, cfg):
             cmd += ['-H', k, str(v)]
         cmd.append(url)
     else:
-        raise Exception('Unknown MCP protocole: %s' % protocol)
+        raise Exception('Unknown MCP protocol: %s' % protocol)
     return cmd
 
 
