@@ -47,6 +47,7 @@ class Agent(BaseModel, TimestampMixin):
     avatar = fields.TextField(null=True, description='头像')
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
     system_prompt = fields.TextField(null=True, description='系统提示词-管理员添加')
+    product_mcp_endpoints = fields.JSONField(null=True, description='产品MCP端点')
 
 
 # LLM表

@@ -74,7 +74,8 @@ def test_oss():
 async def test_xz():
     from core.xz_api import xz_service
 
-    res = await xz_service._get_token()
+    # res = await xz_service._get_token()
+    res = await xz_service.get_agent(id='1440116')
     print(res)
 
 
@@ -99,9 +100,9 @@ if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
     # test_ota()
-    test_template()
-    # import asyncio
+    # test_template()
+    import asyncio
 
-    # asyncio.run(test_xz())
+    asyncio.run(test_xz())
     # asyncio.run(test_wx())
     # asyncio.run(test_profile())

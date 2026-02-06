@@ -54,6 +54,7 @@ class AgentCreate(BaseModel):
     avatar: Optional[str] = Field(default=None, description='头像')
     profile_id: Optional[int] = Field(default=None, description='形象ID')
     system_prompt: Optional[str] = Field(default=None, description='系统提示词-管理员添加')
+    product_mcp_endpoints: Optional[list] = Field(default=None, description='产品MCP端点')
 
 
 class AgentUpdate(AgentCreate):

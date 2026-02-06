@@ -28,5 +28,5 @@ class DeviceUpdate(DeviceCreate):
 
 class DeviceBind(BaseModel):
     user_id: str = Field(description='用户ID')
-    agent_id: str = Field(description='智能体ID')
+    agent_id: Optional[str] = Field(default=None, description='智能体ID')
     code: str = Field(description='验证码')

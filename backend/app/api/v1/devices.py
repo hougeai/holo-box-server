@@ -97,7 +97,8 @@ async def unbind_device(
         # 5. 给远端发请求
         result = await xz_service.unbind_device(deviceId=device.device_id)
         if not result or not result['success']:
-            return Fail(code=400, msg=f'远端设备解绑失败：{result.get("message", "")}')
+            msg = result.get('message', '') if result else '未知'
+            return Fail(code=400, msg=f'远端设备解绑失败：{msg}')
         return Success(msg='Deleted Successfully')
     else:
         return Fail(msg='Device not found')
@@ -107,7 +108,8 @@ async def unbind_device(
 async def bind_device(obj_in: DeviceBind):
     res = await xz_service.bind_device(agentId=obj_in.agent_id, verificationCode=obj_in.code)
     if not res or not res['success']:
-        return Fail(code=400, msg=f'设备绑定失败: {res.get("message", "")}')
+        msg = res.get('message', '') if res else '未知'
+        return Fail(code=400, msg=f'设备绑定失败: {msg}')
     data = res['data']
     device = await device_controller.get_by_mac(data.get('mac_address', ''))
     await device_controller.update(
@@ -120,8 +122,21 @@ async def bind_device(obj_in: DeviceBind):
             'serial_number': data.get('serial_number', ''),
         },
     )
-    # 更新agent中device_count
-    obj = await Agent.filter(agent_id=obj_in.agent_id).first()
-    await obj.update_from_dict({'device_count': obj.device_count + 1})
-    await obj.save()
+    # 判断是否有agent_id
+    if obj_in.agent_id:
+        # 更新agent中device_count
+        obj = await Agent.filter(agent_id=obj_in.agent_id).first()
+        await obj.update_from_dict({'device_count': obj.device_count + 1})
+        await obj.save()
+    else:
+        # 创建一个agent
+        agent_id = data.get('agent_id', '')
+        res = await xz_service.get_agent(agent_id)
+        if not res or not res['success']:
+            msg = res.get('message', '') if res else '未知'
+            return Fail(code=400, msg=f'XZ-API获取智能体详情失败: {msg}')
+        agent = res['data'].get('agent')
+        agent['agent_id'] = agent.pop('id', agent_id)
+        agent['device_count'] = agent.pop('deviceCount', 0)
+        await Agent.create(user_id=obj_in.user_id, **{k: v for k, v in agent.items() if v is not None})
     return Success(msg='绑定成功')

@@ -443,9 +443,9 @@ async def init_agent():
     if to_delete_ids:
         await Agent.filter(agent_id__in=to_delete_ids).delete()
 
-    obj = await Agent.exists()
-    if not obj:
-        agents = await xz_service.list_agent()
+    # 需要创建的：在API中但不在数据库中
+    to_create_ids = api_agent_ids - existing_ids
+    if to_create_ids:
         objs = [
             Agent(
                 user_id='1',
@@ -465,10 +465,12 @@ async def init_agent():
                 tts_pitch=agent.get('tts_pitch'),
                 agent_template_id=agent.get('agent_template_id'),
                 mcp_endpoints=agent.get('mcp_endpoints'),
+                product_mcp_endpoints=agent.get('product_mcp_endpoints'),
                 device_count=agent.get('deviceCount'),
                 source=agent.get('source'),
             )
             for agent in agents
+            if agent.get('id') in to_create_ids
         ]
         await Agent.bulk_create(objs)
 

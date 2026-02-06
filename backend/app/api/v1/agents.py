@@ -66,18 +66,27 @@ async def create_agent(
     if obj:
         return Fail(code=400, msg=f'{obj_in.agent_name}已存在，请重新命名')
     res = await xz_service.create_agent(obj_in)
-    if not res or not res['success']:
-        logger.error(f'创建智能体失败: {res.get("message", "")}')
-        return Fail(code=400, msg=f'XZ-API创建失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        logger.error(f'创建智能体失败: {msg}')
+        return Fail(code=400, msg=f'XZ-API创建失败: {msg}')
     obj_in.agent_id = str(res['data'].get('id'))  # 只返回id
     # 查询智能体详情
     res = await xz_service.get_agent(obj_in.agent_id)
-    if not res or not res['success']:
-        logger.error(f'获取智能体详情失败: {res.get("message", "")}')
-        return Fail(code=400, msg=f'XZ-API获取智能体详情失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        logger.error(f'获取智能体详情失败: {msg}')
+        return Fail(code=400, msg=f'XZ-API获取智能体详情失败: {msg}')
     agent = res['data'].get('agent')
     obj_in.mcp_endpoints = agent.get('mcp_endpoints')
     obj_in.source = agent.get('source')
+    # fix：如果存在product_mcp_endpoints，则更新智能体
+    if obj_in.product_mcp_endpoints:
+        res = await xz_service.update_agent(obj_in.agent_id, obj_in)
+        if not res or not res.get('success'):
+            msg = res.get('message', '') if res else '未知'
+            logger.error(f'更新product_mcp_endpoints失败: {msg}')
+            return Fail(code=400, msg=f'XZ-API更新product_mcp_endpoints失败: {msg}')
     # 保存到数据库
     obj = await agent_controller.create(obj_in=obj_in)
     data = await obj.to_dict()
@@ -97,8 +106,9 @@ async def update_agent(
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
         res = await xz_service.update_agent(obj.agent_id, obj_in)
-        if not res or not res['success']:
-            return Fail(code=400, msg=f'XZ-API更新失败: {res.get("message", "")}')
+        if not res or not res.get('success'):
+            msg = res.get('message', '') if res else '未知'
+            return Fail(code=400, msg=f'XZ-API更新失败: {msg}')
     obj = await agent_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -116,8 +126,9 @@ async def delete_agent(
         return Fail(code=400, msg='请先解绑当前智能体下的所有设备')
     # 先删除远端的
     res = await xz_service.delete_agent(obj.agent_id)
-    if not res or not res['success']:
-        return Fail(code=400, msg=f'XZ-API删除失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        return Fail(code=400, msg=f'XZ-API删除失败: {msg}')
     await agent_controller.remove(id=id)
     return Success(msg='Deleted Successfully')
 
@@ -180,9 +191,10 @@ async def create_agent_template(
         return Fail(code=400, msg=f'{obj_in.agent_name}已存在，请重新命名')
     # 先给远端发请求
     res = await xz_service.create_agent_template(obj_in)
-    if not res or not res['success']:
-        logger.error(f'创建智能体模板失败: {res.get("message", "")}')
-        return Fail(code=400, msg=f'XZ-API创建失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        logger.error(f'创建智能体模板失败: {msg}')
+        return Fail(code=400, msg=f'XZ-API创建失败: {msg}')
     obj_in.agent_id = str(res['data'].get('id'))
     obj = await agent_template_controller.create(obj_in=obj_in)
     data = await obj.to_dict()
@@ -202,8 +214,9 @@ async def update_agent_template(
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
         res = await xz_service.update_agent_template(obj.agent_id, obj_in)
-        if not res or not res['success']:
-            return Fail(code=400, msg=f'XZ-API更新失败： {res.get("message", "")}')
+        if not res or not res.get('success'):
+            msg = res.get('message', '') if res else '未知'
+            return Fail(code=400, msg=f'XZ-API更新失败： {msg}')
     obj = await agent_template_controller.update(id=obj_in.id, obj_in=obj_in)
     data = await obj.to_dict()
     return Success(data=data)
@@ -218,8 +231,9 @@ async def delete_agent_template(
         return Fail(code=400, msg='AgentTemplate not found')
     # 先删除远端的
     res = await xz_service.delete_agent_template(obj.agent_id)
-    if not res or not res['success']:
-        return Fail(code=400, msg=f'XZ-API删除失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        return Fail(code=400, msg=f'XZ-API删除失败: {msg}')
     await agent_template_controller.remove(id=id)
     return Success(msg='Deleted Successfully')
 
@@ -517,16 +531,18 @@ async def create_mcp_tool(
         return Fail(code=400, msg=f'MCP测试失败: {msg}')
     # 请求xz-service创建MCP
     res = await xz_service.create_mcp(obj_in.name, obj_in.description)
-    if not res or not res['success']:
-        logger.error(f'创建MCP失败: {res.get("message", "")}')
-        return Fail(code=400, msg=f'云端创建MCP失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        logger.error(f'创建MCP失败: {msg}')
+        return Fail(code=400, msg=f'云端创建MCP失败: {msg}')
     endpoint_id = res['data']['id']
     obj_in.endpoint_id = endpoint_id
     # 请求生成token
     res = await xz_service.create_mcp_token(endpoint_id)
-    if not res or not res['success']:
-        logger.error(f'创建MCP Token失败: {res.get("message", "")}')
-        return Fail(code=400, msg=f'云端创建MCP Token失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        logger.error(f'创建MCP Token失败: {msg}')
+        return Fail(code=400, msg=f'云端创建MCP Token失败: {msg}')
     token = res.get('token', '')
     if not token:
         return Fail(code=400, msg='创建MCP Token失败')
@@ -556,8 +572,9 @@ async def update_mcp_tool(
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
         res = await xz_service.update_mcp(obj_in)
-        if not res or not res['success']:
-            return Fail(code=400, msg=f'云端更新失败: {res.get("message", "")}')
+        if not res or not res.get('success'):
+            msg = res.get('message', '') if res else '未知'
+            return Fail(code=400, msg=f'云端更新失败: {msg}')
     # 重启服务：要判断 protocol 和 config 是否有变化
     need_restart = False
     if 'protocol' in update_data and obj.protocol != obj_in.protocol:
@@ -595,9 +612,10 @@ async def delete_mcp_tool(
     await mcp_manager.disconnect(mcp)
     # 删除xz-service的MCP
     res = await xz_service.delete_mcp(obj.endpoint_id)
-    if not res or not res['success']:
-        logger.error(f'删除MCP失败: {res.get("message", "")}')
-        return Fail(code=400, msg=f'云端删除MCP失败: {res.get("message", "")}')
+    if not res or not res.get('success'):
+        msg = res.get('message', '') if res else '未知'
+        logger.error(f'删除MCP失败: {msg}')
+        return Fail(code=400, msg=f'云端删除MCP失败: {msg}')
     await mcp_tool_controller.remove(id=id)
     return Success(msg='删除成功')
 

@@ -306,11 +306,7 @@ async function handleUnbind({ id }) {
         >
           <NInput v-model:value="bindForm.user_id" placeholder="请输入用户ID" />
         </NFormItem>
-        <NFormItem
-          label="智能体ID"
-          path="agent_id"
-          :rule="{ required: true, message: '请输入智能体ID' }"
-        >
+        <NFormItem label="智能体ID" path="agent_id">
           <NInput v-model:value="bindForm.agent_id" placeholder="请输入智能体ID" />
         </NFormItem>
         <NFormItem label="验证码" path="code" :rule="{ required: true, message: '请输入验证码' }">
