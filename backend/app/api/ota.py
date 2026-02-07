@@ -92,6 +92,7 @@ async def ota(request: Request):
         await device_controller.update(id=device.id, obj_in={'app_version': ori_version})
         if not device.auto_update:
             res_data['firmware'] = {'version': ori_version, 'url': ''}
+            logger.info(f'不更新固件: {res_data}')
             return JSONResponse(content=res_data)
         # 获取最新版本信息
         obj = await Ota.filter(device_model=device.device_model, is_default=True).first()
@@ -100,6 +101,7 @@ async def ota(request: Request):
                 f'{device.mac_address} {device.device_model} OtaEnabled {device.auto_update} 当前版本：{ori_version}，更新版本：{obj.app_version}'
             )
             res_data['firmware'] = {'version': obj.app_version, 'url': f'{settings.OSS_BUCKET_URL}/{obj.ota_url}'}
+        logger.info(f'更新固件: {res_data}')
         return JSONResponse(content=res_data)
     else:
         # 新增设备
