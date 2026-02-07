@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Query
 from tortoise.expressions import Q
-from core.quota import quota_service
 from core.xz_api import xz_service
 from controllers import device_controller
 from schemas.base import Fail, Success, SuccessExtra
@@ -52,11 +51,19 @@ async def create_device(
 async def update_device(
     obj_in: DeviceUpdate,
 ):
-    # 检查设备配额：前端通过update user_id新增设备
-    if obj_in.user_id:
-        quota_ok, msg = await quota_service.check_device(obj_in.user_id)
-        if not quota_ok:
-            return Fail(code=400, msg=msg)
+    obj = await device_controller.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='设备不存在')
+    if not obj.agent_id:
+        return Fail(code=400, msg='设备未绑定')
+    if obj_in.auto_update is not None:
+        # 给远端发送更新请求
+        res = await xz_service.update_device_ota(
+            agentId=obj.agent_id, macAddress=obj.mac_address, autoUpdate=1 if obj_in.auto_update else 0
+        )
+        if not res or not res['success']:
+            msg = res.get('message', '') if res else '未知'
+            return Fail(code=400, msg=f'远端设备更新OTA失败：{msg}')
     await device_controller.update(id=obj_in.id, obj_in=obj_in)
     return Success(msg='Updated Successfully')
 

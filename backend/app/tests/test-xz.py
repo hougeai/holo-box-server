@@ -29,9 +29,14 @@ def test_agent():
 
 def test_device():
     # response = client.post('/api/agents/651130/devices', data={'verificationCode': 745404}, headers=headers)
-    response = client.post('/api/developers/unbind-device', data={'device_id': 1561845}, headers=headers)
+    # response = client.post('/api/developers/unbind-device', data={'device_id': 1561845}, headers=headers)
+    # print(response.status_code)
+    # print(response.json())
+    params = {'device_id': 1610336}
+    response = client.get('/api/developers/devices', params=params, headers=headers)
     print(response.status_code)
-    print(response.json())
+    with open('0device.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
 
 
 def test_agentTemplate():
@@ -62,7 +67,7 @@ def test_product():
 if __name__ == '__main__':
     # get_token()
     # test_agent()
-    # test_device()
+    test_device()
     # test_agentTemplate()
     # test_mcp()
-    test_product()
+    # test_product()

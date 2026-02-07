@@ -109,23 +109,6 @@ const columns = [
     },
   },
   {
-    title: '最近对话',
-    key: 'last_conversation',
-    align: 'center',
-    width: 40,
-    ellipsis: { tooltip: true },
-    render(row) {
-      return h(
-        NButton,
-        { size: 'small', type: 'text', ghost: true },
-        {
-          default: () =>
-            row.last_conversation !== null ? formatDateTime(row.last_conversation) : '-',
-        },
-      )
-    },
-  },
-  {
     title: '创建时间',
     key: 'create_at',
     width: 40,

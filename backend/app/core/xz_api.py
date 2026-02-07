@@ -221,6 +221,7 @@ class XZService:
         url = f'{self.base_url}/api/developers/agent-templates/{id}'
         return await self._make_request('DELETE', url)
 
+    # 设备相关接口
     async def bind_device(self, agentId, verificationCode):
         """绑定设备"""
         if agentId:
@@ -235,6 +236,22 @@ class XZService:
         data = {'device_id': deviceId}
         url = f'{self.base_url}/api/developers/unbind-device'
         return await self._make_request('POST', url, json=data)
+
+    async def update_device_ota(self, agentId, macAddress, autoUpdate=0):
+        """更新设备"""
+        url = f'{self.base_url}/api/agents/{agentId}/devices/update-auto-update'
+        data = {'macAddress': macAddress, 'auto_update': autoUpdate}
+        return await self._make_request('POST', url, json=data)
+
+    async def get_device(self, product_id=None, device_id=None):
+        """获取设备信息"""
+        url = f'{self.base_url}/api/developers/devices'
+        params = {}
+        if product_id:
+            params['product_id'] = product_id
+        if device_id:
+            params['device_id'] = device_id
+        return await self._make_request('GET', url, params=params)
 
     # mcp相关接口
     async def list_mcp_official(self):
