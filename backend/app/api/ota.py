@@ -57,15 +57,15 @@ async def ota(request: Request):
             async with session.post(settings.XIAOZHI_OTA_URL, headers=forward_headers, json=data) as response:
                 if response.status == 200:
                     res_data = await response.json()
-                    logger.info(f'OTA转发成功: {res_data}')
+                    logger.info(f'OTA转发成功: {mac_address} {res_data}')
                     if 'activation' in res_data:
                         message = res_data['activation']['message']
                         _, code = message.split('\n')
                         res_data['activation']['message'] = code
                 else:
-                    logger.error(f'Failed to get ota info: {response.status}')
+                    logger.error(f'Failed to get ota info: {mac_address} {response.status}')
     except Exception as e:
-        logger.error(f'OTA转发失败: {e}')
+        logger.error(f'OTA转发失败: {mac_address} {e}')
         return Fail(code=400, msg=f'OTA转发失败: {e}')
 
     # 查询设备是否OTA，是否有新版本
@@ -87,12 +87,14 @@ async def ota(request: Request):
                         results.append(item)
                 res_data['profile'] = results
         except Exception as e:
-            logger.error(f'获取形象信息失败: {e}')
+            logger.error(f'获取形象信息失败: {mac_address} {e}')
         # 设备已存在，更新设备信息
-        await device_controller.update(id=device.id, obj_in={'app_version': ori_version})
+        await device_controller.update(
+            id=device.id, obj_in={'chip_type': chip_type, 'device_model': device_model, 'app_version': ori_version}
+        )
         if not device.auto_update:
             res_data['firmware'] = {'version': ori_version, 'url': ''}
-            logger.info(f'不更新固件: {res_data}')
+            logger.info(f'不更新固件: {mac_address} {res_data}')
             return JSONResponse(content=res_data)
         # 获取最新版本信息
         obj = await Ota.filter(device_model=device.device_model, is_default=True).first()
@@ -101,7 +103,9 @@ async def ota(request: Request):
                 f'{device.mac_address} {device.device_model} OtaEnabled {device.auto_update} 当前版本：{ori_version}，更新版本：{obj.app_version}'
             )
             res_data['firmware'] = {'version': obj.app_version, 'url': f'{settings.OSS_BUCKET_URL}/{obj.ota_url}'}
-        logger.info(f'更新固件: {res_data}')
+            logger.info(f'更新固件: {mac_address} {res_data}')
+        else:
+            logger.info(f'无最新固件: {mac_address} {res_data}')
         return JSONResponse(content=res_data)
     else:
         # 新增设备

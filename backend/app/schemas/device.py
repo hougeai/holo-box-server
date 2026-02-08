@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 # 设备相关
 class DeviceCreate(BaseModel):
     mac_address: str
-    uuid: str
+    uuid: Optional[str] = None
     user_id: Optional[str] = None
     device_id: Optional[str] = None
     chip_type: Optional[str] = None

@@ -2,7 +2,7 @@
 import { h, onMounted, ref, resolveDirective, withDirectives } from 'vue'
 import { NButton, NInput, NSwitch, NTag, NModal, NForm, NFormItem, NPopconfirm } from 'naive-ui'
 
-import { formatDateTime, renderIcon } from '@/utils'
+import { formatDateTime } from '@/utils'
 import { useUserStore } from '@/store'
 import api from '@/api'
 
@@ -168,12 +168,36 @@ const columns = [
                   },
                   {
                     default: () => '解绑',
-                    icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
                   },
                 ),
                 [[vPermission, 'delete/api/v1/device/unbind']],
               ),
             default: () => h('div', {}, '确定解绑吗?'),
+          },
+        ),
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => handleDelete({ id: row.id }),
+            onNegativeClick: () => {},
+          },
+          {
+            trigger: () =>
+              withDirectives(
+                h(
+                  NButton,
+                  {
+                    size: 'small',
+                    type: 'error',
+                    style: 'margin-right: 8px;',
+                  },
+                  {
+                    default: () => '删除',
+                  },
+                ),
+                [[vPermission, 'delete/api/v1/device/delete']],
+              ),
+            default: () => h('div', {}, '确定删除吗?'),
           },
         ),
       ]
@@ -231,6 +255,16 @@ async function handleUnbind({ id }) {
   try {
     await api.unbindDevice({ id })
     $message?.success('解绑成功')
+    $table.value?.handleSearch()
+  } catch (err) {
+    console.log(err)
+  }
+}
+// 删除设备
+async function handleDelete({ id }) {
+  try {
+    await api.deleteDevice({ id })
+    $message?.success('删除成功')
     $table.value?.handleSearch()
   } catch (err) {
     console.log(err)

@@ -174,7 +174,7 @@ async def list_agent_template(
 ):
     q = Q()
     if agent_name:
-        q &= Q(agent_name_contains=agent_name)
+        q &= Q(agent_name__contains=agent_name)
     if public is not None:
         q &= Q(public=public)
     total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['-id'])

@@ -30,7 +30,7 @@ async def list_device(
     if device_model:
         q &= Q(device_model__contains=device_model)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
-    total, objs = await device_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    total, objs = await device_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
@@ -74,11 +74,13 @@ async def delete_device(
 ):
     # 首先获得device_id
     obj = await device_controller.get(id=id)
-    if obj:
-        await device_controller.remove(id=id)
-        return Success(msg='Deleted Successfully')
-    else:
-        return Success(msg='Device not found')
+    if not obj:
+        return Fail(code=400, msg='Device not found')
+    if obj.user_id:
+        # 需要先解绑
+        await unbind_device(id=id)
+    await device_controller.remove(id=id)
+    return Success(msg='Device deleted Successfully')
 
 
 @router.delete('/unbind', summary='解绑设备')
@@ -106,7 +108,7 @@ async def unbind_device(
         if not result or not result['success']:
             msg = result.get('message', '') if result else '未知'
             return Fail(code=400, msg=f'远端设备解绑失败：{msg}')
-        return Success(msg='Deleted Successfully')
+        return Success(msg='Unbind Successfully')
     else:
         return Fail(msg='Device not found')
 
@@ -114,30 +116,22 @@ async def unbind_device(
 @router.post('/bind', summary='绑定设备')
 async def bind_device(obj_in: DeviceBind):
     # 判断 user_id 和 agent_id 是否匹配
-    if obj_in.agent_id:
-        agent = await Agent.filter(user_id=obj_in.user_id, agent_id=obj_in.agent_id).first()
+    user_id = obj_in.user_id
+    agent_id = obj_in.agent_id
+    if agent_id:
+        agent = await Agent.filter(user_id=user_id, agent_id=agent_id).first()
         if not agent:
-            return Fail(code=400, msg=f'用户无权限操作当前智能体：{obj_in.agent_id}')
-    res = await xz_service.bind_device(agentId=obj_in.agent_id, verificationCode=obj_in.code)
+            return Fail(code=400, msg=f'用户无权限操作当前智能体：{agent_id}')
+    res = await xz_service.bind_device(agentId=agent_id, verificationCode=obj_in.code)
     if not res or not res['success']:
         msg = res.get('message', '') if res else '未知'
         return Fail(code=400, msg=f'设备绑定失败: {msg}')
     data = res['data']
-    device = await device_controller.get_by_mac(data.get('mac_address', ''))
-    await device_controller.update(
-        id=device.id,
-        obj_in={
-            'user_id': obj_in.user_id,
-            'agent_id': obj_in.agent_id,
-            'device_id': data.get('id', ''),
-            'auto_update': True if data.get('auto_update', False) else False,
-            'serial_number': data.get('serial_number', ''),
-        },
-    )
-    # 判断是否有agent_id
-    if obj_in.agent_id:
+
+    # 判断是否有agent_id，如果没有则创建一条agent记录
+    if agent_id:
         # 更新agent中device_count
-        obj = await Agent.filter(agent_id=obj_in.agent_id).first()
+        obj = await Agent.filter(agent_id=agent_id).first()
         await obj.update_from_dict({'device_count': obj.device_count + 1})
         await obj.save()
     else:
@@ -150,5 +144,30 @@ async def bind_device(obj_in: DeviceBind):
         agent = res['data'].get('agent')
         agent['agent_id'] = agent.pop('id', agent_id)
         agent['device_count'] = agent.pop('deviceCount', 0)
-        await Agent.create(user_id=obj_in.user_id, **{k: v for k, v in agent.items() if v is not None})
-    return Success(msg='绑定成功')
+        await Agent.create(user_id=user_id, **{k: v for k, v in agent.items() if v is not None})
+
+    # 判断是否有设备，如果没有则要创建一条设备记录
+    device = await device_controller.get_by_mac(data.get('mac_address', ''))
+    if device:
+        obj = await device_controller.update(
+            id=device.id,
+            obj_in={
+                'user_id': user_id,
+                'agent_id': agent_id,
+                'device_id': data.get('id', ''),
+                'auto_update': True if data.get('auto_update', False) else False,
+                'serial_number': data.get('serial_number', ''),
+            },
+        )
+    else:
+        obj_in = {
+            'mac_address': data.get('mac_address', ''),
+            'user_id': user_id,
+            'agent_id': agent_id,
+            'device_id': data.get('id', ''),
+            'auto_update': True if data.get('auto_update', False) else False,
+            'serial_number': data.get('serial_number', ''),
+        }
+        obj = await device_controller.create(obj_in)
+    data = await obj.to_dict()
+    return Success(data=data, msg='绑定成功')
