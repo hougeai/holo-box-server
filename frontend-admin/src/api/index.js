@@ -41,12 +41,12 @@ export default {
   createAgentTemplate: (data = {}) => request.post('/agent/template/create', data),
   updateAgentTemplate: (data = {}) => request.post('/agent/template/update', data),
   deleteAgentTemplate: (params = {}) => request.delete('/agent/template/delete', { params }),
-  uploadAgentTemplate: (data = {}) =>
-    request.post('/agent/template/upload', data, { timeout: 120000 }),
   // resource-profile
   getProfileList: (params = {}) => request.get('/agent/profile/list', { params }),
   profileUploadImg: (data = {}) =>
     request.post('/agent/profile/upload-img', data, { timeout: 120000 }),
+  profileUploadSrc: (data = {}) =>
+    request.post('/agent/profile/upload-src', data, { timeout: 120000 }),
   profileGenerateVid: (data = {}) => request.post('/agent/profile/generate-vid', data),
   profileGenerateVidEdit: (data = {}) =>
     request.post('/agent/profile/generate-vid-edit', data, { timeout: 240000 }),

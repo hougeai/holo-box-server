@@ -85,6 +85,9 @@ class Profile(BaseModel, TimestampMixin):
     method = fields.CharField(max_length=36, null=True, index=True, description='生成方式')
     status = fields.CharField(max_length=36, null=True, index=True, description='形象状态')
     subject_type = fields.CharEnumField(SubjectType, default=SubjectType.HUMAN, index=True, description='主体类型')
+    sys_vids = fields.JSONField(null=True, description='系统状态视频列表，emotion-url 字典')
+    profile_vid = fields.TextField(null=True, description='形象展示视频')
+    avatar = fields.TextField(null=True, description='头像')
 
 
 # 系统提示词表

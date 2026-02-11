@@ -9,6 +9,7 @@ import {
   NSpace,
   NFormItem,
   NSelect,
+  NModal,
 } from 'naive-ui'
 
 import { formatDateTime, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
@@ -22,6 +23,18 @@ const $table = ref(null) // 只是说明这是一个特殊的实例
 const queryItems = ref({})
 const vPermission = resolveDirective('permission') // 用来解析自定义指令，是app.directive('permission', {})定义的
 const userStore = useUserStore()
+
+// 查看预览对话框
+const previewVisible = ref(false)
+const previewUrl = ref('')
+const previewType = ref('image') // 'image' 或 'video'
+
+// 打开预览对话框
+const openPreview = (url, type = 'image') => {
+  previewUrl.value = url
+  previewType.value = type
+  previewVisible.value = true
+}
 
 const {
   modalVisible,
@@ -348,10 +361,10 @@ const filteredProductMcpEndpoints = computed({
   },
 })
 
-// 当前选中的profile对应的gen_img
-const currentProfileGenImg = computed(() => {
+// 当前选中的profile对应的avatar
+const currentProfileAvatar = computed(() => {
   const profile = profileList.value.find((p) => p.id === modalForm.value.profile_id)
-  return profile?.ori_img || ''
+  return profile?.avatar || ''
 })
 
 // 监听profile_id变化，同步更新avatar
@@ -359,8 +372,8 @@ watch(
   () => modalForm.value.profile_id,
   (newVal) => {
     const profile = profileList.value.find((p) => p.id === newVal)
-    if (profile?.ori_img) {
-      modalForm.value.avatar = profile.ori_img
+    if (profile) {
+      modalForm.value.avatar = profile.avatar
     }
   },
   { immediate: true },
@@ -492,14 +505,44 @@ const columns = [
     width: 30,
     align: 'center',
     render: (row) => {
-      return row.avatar
-        ? h('img', {
+      if (!row.avatar) {
+        return h('span', { style: 'color: #ccc;' }, '-')
+      }
+
+      return h(
+        'div',
+        {
+          style: 'position: relative; width: 50px; height: 50px;',
+        },
+        [
+          h('img', {
             src: row.avatar,
             style:
               'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
-            onClick: () => window.open(row.avatar, '_blank'),
-          })
-        : h('span', { style: 'color: #ccc;' }, '-')
+          }),
+          h(
+            'div',
+            {
+              style:
+                'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+              onMouseenter: (e) => (e.target.style.opacity = '1'),
+              onMouseleave: (e) => (e.target.style.opacity = '0'),
+            },
+            [
+              h(
+                NButton,
+                {
+                  size: 'tiny',
+                  type: 'primary',
+                  text: true,
+                  onClick: () => openPreview(row.avatar, 'image'),
+                },
+                { icon: renderIcon('material-symbols:visibility') },
+              ),
+            ],
+          ),
+        ],
+      )
     },
   },
   {
@@ -864,8 +907,8 @@ const columns = [
           <NFormItem label="头像预览" class="flex-1">
             <div class="w-50 h-50 rounded-lg border border-gray-200">
               <img
-                v-if="currentProfileGenImg"
-                :src="currentProfileGenImg"
+                v-if="currentProfileAvatar"
+                :src="currentProfileAvatar"
                 alt="头像预览"
                 class="w-full h-full object-cover"
               />
@@ -895,4 +938,21 @@ const columns = [
       </NForm>
     </CrudModal>
   </CommonPage>
+
+  <!-- 预览对话框 -->
+  <NModal
+    v-model:show="previewVisible"
+    preset="card"
+    style="width: 80%; max-width: 800px"
+    :title="previewType === 'video' ? '预览视频' : '预览图片'"
+  >
+    <div style="padding: 20px; text-align: center">
+      <img
+        v-if="previewType === 'image'"
+        :src="previewUrl"
+        style="max-width: 100%; max-height: 80vh"
+      />
+      <video v-else :src="previewUrl" controls autoplay style="max-width: 100%; max-height: 80vh" />
+    </div>
+  </NModal>
 </template>

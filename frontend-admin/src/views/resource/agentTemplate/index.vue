@@ -1,6 +1,6 @@
 <script setup>
 import { h, onMounted, ref, resolveDirective, withDirectives, computed, watch } from 'vue'
-import { NButton, NInput, NPopconfirm, NSelect, NFormItem, NSwitch, NModal, NSpin } from 'naive-ui'
+import { NButton, NInput, NPopconfirm, NSelect, NFormItem, NSwitch, NModal } from 'naive-ui'
 
 import { formatDateTime, renderIcon, languageMap, asrSpeedMap, ttsSpeedMap } from '@/utils'
 import { useCRUD } from '@/composables'
@@ -216,68 +216,6 @@ const publicOptions = [
   { label: '否', value: false },
 ]
 
-// 上传视频
-const handleUploadVideo = async (row) => {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'video/mp4'
-  input.onchange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    modalLoading.value = true
-    const formData = new FormData()
-    formData.append('id', row.id)
-    formData.append('source', file)
-    formData.append('source_type', 'profile-vid')
-
-    try {
-      const res = await api.uploadAgentTemplate(formData)
-      if (res.data) {
-        $message.success('上传视频成功')
-        $table.value?.handleSearch()
-      }
-    } catch (error) {
-      console.error('上传视频失败:', error)
-      $message.error('上传视频失败')
-    } finally {
-      modalLoading.value = false
-    }
-  }
-  input.click()
-}
-
-// 上传头像
-const handleUploadAvatar = async (row) => {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/png,image/jpeg,image/jpg'
-  input.onchange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    modalLoading.value = true
-    const formData = new FormData()
-    formData.append('id', row.id)
-    formData.append('source', file)
-    formData.append('source_type', 'avatar')
-
-    try {
-      const res = await api.uploadAgentTemplate(formData)
-      if (res.data) {
-        $message.success('上传头像成功')
-        $table.value?.handleSearch()
-      }
-    } catch (error) {
-      console.error('上传头像失败:', error)
-      $message.error('上传头像失败')
-    } finally {
-      modalLoading.value = false
-    }
-  }
-  input.click()
-}
-
 // 语言选项
 const languageOptions = computed(() => {
   return Object.entries(languageMap).map(([value, label]) => ({ label, value }))
@@ -300,9 +238,9 @@ const profileOptions = computed(() => {
 })
 
 // 当前选中的profile对应的gen_img
-const currentProfileGenImg = computed(() => {
+const currentProfileAvatar = computed(() => {
   const profile = profileList.value.find((p) => p.id === modalForm.value.profile_id)
-  return profile?.ori_img || ''
+  return profile?.avatar || ''
 })
 
 // 监听profile_id变化，同步更新profile_img
@@ -310,8 +248,10 @@ watch(
   () => modalForm.value.profile_id,
   (newVal) => {
     const profile = profileList.value.find((p) => p.id === newVal)
-    if (profile?.ori_img) {
-      modalForm.value.profile_img = profile.ori_img
+    if (profile) {
+      modalForm.value.avatar = profile.avatar
+      modalForm.value.profile_img = profile.gen_img
+      modalForm.value.profile_vid = profile.gen_vid
     }
   },
   { immediate: true },
@@ -421,72 +361,50 @@ const columns = [
     width: 30,
     align: 'center',
     render: (row) => {
-      const content = !row.profile_vid
-        ? h(
-            NButton,
-            {
-              size: 'tiny',
-              type: 'primary',
-              text: true,
-              onClick: () => handleUploadVideo(row),
+      if (!row.profile_vid) {
+        return h('span', { style: 'color: #ccc;' }, '-')
+      }
+
+      return h(
+        'div',
+        {
+          style: 'position: relative; width: 50px; height: 50px;',
+        },
+        [
+          h('video', {
+            src: row.profile_vid,
+            style:
+              'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
+            muted: true,
+            onMouseenter: (e) => e.target.play(),
+            onMouseleave: (e) => {
+              e.target.pause()
+              e.target.currentTime = 0
             },
-            { icon: renderIcon('material-symbols:upload') },
-          )
-        : h(
+          }),
+          h(
             'div',
             {
-              style: 'position: relative; width: 50px; height: 50px;',
+              style:
+                'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+              onMouseenter: (e) => (e.target.style.opacity = '1'),
+              onMouseleave: (e) => (e.target.style.opacity = '0'),
             },
             [
-              h('video', {
-                src: row.profile_vid,
-                style:
-                  'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
-                muted: true,
-                onMouseenter: (e) => e.target.play(),
-                onMouseleave: (e) => {
-                  e.target.pause()
-                  e.target.currentTime = 0
-                },
-              }),
               h(
-                'div',
+                NButton,
                 {
-                  style:
-                    'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
-                  onMouseenter: (e) => (e.target.style.opacity = '1'),
-                  onMouseleave: (e) => (e.target.style.opacity = '0'),
+                  size: 'tiny',
+                  type: 'primary',
+                  text: true,
+                  onClick: () => openPreview(row.profile_vid, 'video'),
                 },
-                [
-                  h(
-                    NButton,
-                    {
-                      size: 'tiny',
-                      type: 'primary',
-                      text: true,
-                      onClick: () => openPreview(row.profile_vid, 'video'),
-                    },
-                    { icon: renderIcon('material-symbols:visibility') },
-                  ),
-                  h(
-                    NButton,
-                    {
-                      size: 'tiny',
-                      type: 'primary',
-                      text: true,
-                      onClick: (e) => {
-                        e.stopPropagation()
-                        handleUploadVideo(row)
-                      },
-                    },
-                    { icon: renderIcon('material-symbols:upload') },
-                  ),
-                ],
+                { icon: renderIcon('material-symbols:visibility') },
               ),
             ],
-          )
-
-      return h(NSpin, { show: modalLoading.value, style: 'display: inline-block;' }, () => content)
+          ),
+        ],
+      )
     },
   },
   {
@@ -495,66 +413,44 @@ const columns = [
     width: 30,
     align: 'center',
     render: (row) => {
-      const content = !row.avatar
-        ? h(
-            NButton,
-            {
-              size: 'tiny',
-              type: 'primary',
-              text: true,
-              onClick: () => handleUploadAvatar(row),
-            },
-            { icon: renderIcon('material-symbols:upload') },
-          )
-        : h(
+      if (!row.avatar) {
+        return h('span', { style: 'color: #ccc;' }, '-')
+      }
+
+      return h(
+        'div',
+        {
+          style: 'position: relative; width: 50px; height: 50px;',
+        },
+        [
+          h('img', {
+            src: row.avatar,
+            style:
+              'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
+          }),
+          h(
             'div',
             {
-              style: 'position: relative; width: 50px; height: 50px;',
+              style:
+                'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+              onMouseenter: (e) => (e.target.style.opacity = '1'),
+              onMouseleave: (e) => (e.target.style.opacity = '0'),
             },
             [
-              h('img', {
-                src: row.avatar,
-                style:
-                  'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
-              }),
               h(
-                'div',
+                NButton,
                 {
-                  style:
-                    'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
-                  onMouseenter: (e) => (e.target.style.opacity = '1'),
-                  onMouseleave: (e) => (e.target.style.opacity = '0'),
+                  size: 'tiny',
+                  type: 'primary',
+                  text: true,
+                  onClick: () => openPreview(row.avatar, 'image'),
                 },
-                [
-                  h(
-                    NButton,
-                    {
-                      size: 'tiny',
-                      type: 'primary',
-                      text: true,
-                      onClick: () => openPreview(row.avatar, 'image'),
-                    },
-                    { icon: renderIcon('material-symbols:visibility') },
-                  ),
-                  h(
-                    NButton,
-                    {
-                      size: 'tiny',
-                      type: 'primary',
-                      text: true,
-                      onClick: (e) => {
-                        e.stopPropagation()
-                        handleUploadAvatar(row)
-                      },
-                    },
-                    { icon: renderIcon('material-symbols:upload') },
-                  ),
-                ],
+                { icon: renderIcon('material-symbols:visibility') },
               ),
             ],
-          )
-
-      return h(NSpin, { show: modalLoading.value, style: 'display: inline-block;' }, () => content)
+          ),
+        ],
+      )
     },
   },
   {
@@ -907,8 +803,8 @@ const columns = [
           <NFormItem label="形象照片" class="flex-1">
             <div class="w-50 h-50 rounded-lg border border-gray-200">
               <img
-                v-if="currentProfileGenImg"
-                :src="currentProfileGenImg"
+                v-if="currentProfileAvatar"
+                :src="currentProfileAvatar"
                 alt="形象照片"
                 class="w-full h-full object-cover"
               />

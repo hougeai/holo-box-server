@@ -37,10 +37,12 @@ const userStore = useUserStore()
 const imagePreviewVisible = ref(false)
 const imagePreviewUrl = ref('')
 const imagePreviewTitle = ref('')
+const imagePreviewType = ref('image') // 'image' 或 'video'
 
 const handleImagePreview = (url, title) => {
   imagePreviewUrl.value = url
   imagePreviewTitle.value = title
+  imagePreviewType.value = url.endsWith('.mp4') || url.includes('video') ? 'video' : 'image'
   imagePreviewVisible.value = true
 }
 
@@ -90,6 +92,13 @@ const emotions = [
   { key: 'playful', label: '调皮' },
   { key: 'calm', label: '放松' },
   { key: 'sleepy', label: '困倦' },
+]
+// 状态列表
+const sysStatus = [
+  { key: 'standby', label: '待机' },
+  { key: 'charging', label: '充电' },
+  { key: 'singing', label: '唱歌' },
+  { key: 'clocking', label: '闹钟' },
 ]
 
 // 轮询定时器
@@ -283,6 +292,72 @@ const finishUpload = async () => {
   }
 }
 
+// 上传头像
+const handleUploadAvatar = async (row) => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/png,image/jpeg,image/jpg'
+  input.onchange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    modalLoading.value = true
+    const formData = new FormData()
+    formData.append('id', row.id)
+    formData.append('source', file)
+    formData.append('source_type', 'avatar')
+
+    try {
+      const res = await api.profileUploadSrc(formData)
+      if (res.code === 200) {
+        $message.success('上传头像成功')
+        $table.value?.handleSearch()
+      } else {
+        $message.error(res.msg || '上传头像失败')
+      }
+    } catch (error) {
+      console.error('上传头像失败:', error)
+      $message.error('上传头像失败')
+    } finally {
+      modalLoading.value = false
+    }
+  }
+  input.click()
+}
+
+// 上传形象视频
+const handleUploadVideo = async (row) => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'video/mp4'
+  input.onchange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    modalLoading.value = true
+    const formData = new FormData()
+    formData.append('id', row.id)
+    formData.append('source', file)
+    formData.append('source_type', 'profile_vid')
+
+    try {
+      const res = await api.profileUploadSrc(formData)
+      if (res.code === 200) {
+        $message.success('上传视频成功')
+        $table.value?.handleSearch()
+      } else {
+        $message.error(res.msg || '上传视频失败')
+      }
+    } catch (error) {
+      console.error('上传视频失败:', error)
+      $message.error('上传视频失败')
+    } finally {
+      modalLoading.value = false
+    }
+  }
+  input.click()
+}
+
 // AIGC生成：选择原始图片预览
 const handleAIGCSelectOriImg = (e) => {
   const file = e.file.file
@@ -368,7 +443,7 @@ const startPolling = () => {
           aigcForm.value.generating = false
           aigcForm.value.generateStatus = 'success'
           aigcForm.value.generateProgress = 100
-          $message.success('形象视频生成完成')
+          $message.success('表情视频生成完成')
           createModalVisible.value = false
           $table.value?.handleSearch()
         } else if (retryCount >= maxRetries) {
@@ -388,7 +463,7 @@ const startPolling = () => {
 const editVideoUping = ref({})
 const editVideoGening = ref({})
 // 编辑模式：上传视频
-const handleEditVideoUpload = async (emotion, fileList) => {
+const handleEditVideoUpload = async (emotion, fileList, target = 'gen_vids') => {
   const file = fileList?.fileList?.[fileList.fileList.length - 1]?.file
   if (!file) return
 
@@ -401,16 +476,17 @@ const handleEditVideoUpload = async (emotion, fileList) => {
   try {
     const res = await api.profileUploadVid(formData)
     if (res.code === 200) {
-      if (!modalForm.value.gen_vids) {
-        modalForm.value.gen_vids = {}
+      if (!modalForm.value[target]) {
+        modalForm.value[target] = {}
       }
-      modalForm.value.gen_vids[emotion] = {
+      modalForm.value[target][emotion] = {
         url: res.data.video_url,
         hash: res.data.video_hash,
         status: 'success',
         msg: '',
       }
-      $message.success(`${emotions.find((e) => e.key === emotion).label}视频更新成功`)
+      const emotionList = target === 'sys_vids' ? sysStatus : emotions
+      $message.success(`${emotionList.find((e) => e.key === emotion).label}视频更新成功`)
     } else {
       $message.error(res.msg || '视频上传失败')
     }
@@ -500,7 +576,14 @@ const columns = [
     key: 'subject_type',
     width: 30,
     align: 'center',
-    ellipsis: { tooltip: true },
+    render: (row) => {
+      const typeMap = {
+        human: { label: '人物', type: 'primary' },
+        animal: { label: '动物', type: 'success' },
+      }
+      const config = typeMap[row.subject_type] || { label: row.subject_type, type: 'default' }
+      return h(NTag, { type: config.type }, () => config.label)
+    },
   },
   {
     title: '原始图片',
@@ -535,7 +618,7 @@ const columns = [
               h(
                 NButton,
                 {
-                  size: 'tiny',
+                  size: 'small',
                   type: 'primary',
                   text: true,
                   onClick: () => handleImagePreview(row.ori_img, '原始图片'),
@@ -581,7 +664,7 @@ const columns = [
               h(
                 NButton,
                 {
-                  size: 'tiny',
+                  size: 'small',
                   type: 'primary',
                   text: true,
                   onClick: () => handleImagePreview(row.gen_img, '生成图片'),
@@ -595,7 +678,35 @@ const columns = [
     },
   },
   {
-    title: '形象视频',
+    title: '状态视频',
+    key: 'body',
+    align: 'center',
+    width: 30,
+    render: (row) => {
+      return h(
+        NPopover,
+        {
+          trigger: 'hover',
+          placement: 'right',
+        },
+        {
+          trigger: () =>
+            h('div', { style: 'cursor: pointer;' }, [h(TheIcon, { icon: 'carbon:data-view' })]),
+          default: () =>
+            h(
+              'pre',
+              {
+                style:
+                  'max-height: 400px; overflow: auto; background-color: #f5f5f5; padding: 8px; border-radius: 4px;',
+              },
+              formatJSON(row.sys_vids),
+            ),
+        },
+      )
+    },
+  },
+  {
+    title: '表情视频',
     key: 'body',
     align: 'center',
     width: 30,
@@ -620,6 +731,148 @@ const columns = [
             ),
         },
       )
+    },
+  },
+  {
+    title: '头像',
+    key: 'avatar',
+    width: 30,
+    align: 'center',
+    render: (row) => {
+      const content = !row.avatar
+        ? h(
+            NButton,
+            {
+              size: 'small',
+              type: 'primary',
+              text: true,
+              onClick: () => handleUploadAvatar(row),
+            },
+            { icon: renderIcon('material-symbols:upload') },
+          )
+        : h(
+            'div',
+            {
+              style: 'position: relative; width: 50px; height: 50px;',
+            },
+            [
+              h('img', {
+                src: row.avatar,
+                style:
+                  'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
+              }),
+              h(
+                'div',
+                {
+                  style:
+                    'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+                  onMouseenter: (e) => (e.target.style.opacity = '1'),
+                  onMouseleave: (e) => (e.target.style.opacity = '0'),
+                },
+                [
+                  h(
+                    NButton,
+                    {
+                      size: 'small',
+                      type: 'primary',
+                      text: true,
+                      onClick: () => handleImagePreview(row.avatar, '头像'),
+                    },
+                    { icon: renderIcon('material-symbols:visibility') },
+                  ),
+                  h(
+                    NButton,
+                    {
+                      size: 'small',
+                      type: 'primary',
+                      text: true,
+                      onClick: (e) => {
+                        e.stopPropagation()
+                        handleUploadAvatar(row)
+                      },
+                    },
+                    { icon: renderIcon('material-symbols:upload') },
+                  ),
+                ],
+              ),
+            ],
+          )
+
+      return h(NSpin, { show: modalLoading.value, style: 'display: inline-block;' }, () => content)
+    },
+  },
+  {
+    title: '展示视频',
+    key: 'profile_vid',
+    width: 30,
+    align: 'center',
+    render: (row) => {
+      const content = !row.profile_vid
+        ? h(
+            NButton,
+            {
+              size: 'small',
+              type: 'primary',
+              text: true,
+              onClick: () => handleUploadVideo(row),
+            },
+            { icon: renderIcon('material-symbols:upload') },
+          )
+        : h(
+            'div',
+            {
+              style: 'position: relative; width: 50px; height: 50px;',
+            },
+            [
+              h('video', {
+                src: row.profile_vid,
+                style:
+                  'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
+                muted: true,
+                onMouseenter: (e) => e.target.play(),
+                onMouseleave: (e) => {
+                  e.target.pause()
+                  e.target.currentTime = 0
+                },
+              }),
+              h(
+                'div',
+                {
+                  style:
+                    'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+                  onMouseenter: (e) => (e.target.style.opacity = '1'),
+                  onMouseleave: (e) => (e.target.style.opacity = '0'),
+                },
+                [
+                  h(
+                    NButton,
+                    {
+                      size: 'small',
+                      type: 'primary',
+                      text: true,
+                      onClick: () => handleImagePreview(row.profile_vid, '形象视频'),
+                    },
+                    { icon: renderIcon('material-symbols:visibility') },
+                  ),
+                  h(
+                    NButton,
+                    {
+                      size: 'small',
+                      type: 'primary',
+                      text: true,
+                      onClick: (e) => {
+                        e.stopPropagation()
+                        handleUploadVideo(row)
+                      },
+                    },
+                    { icon: renderIcon('material-symbols:upload') },
+                  ),
+                ],
+              ),
+            ],
+          )
+
+      return h(NSpin, { show: modalLoading.value, style: 'display: inline-block;' }, () => content)
     },
   },
   {
@@ -995,47 +1248,82 @@ const columns = [
         :label-width="100"
         :model="modalForm"
       >
-        <NFormItem
-          label="形象名称"
-          path="name"
-          :rule="{
-            required: true,
-            message: '请输入形象名称',
-            trigger: ['input', 'blur'],
-          }"
-        >
-          <NInput
-            v-model:value="modalForm.name"
-            placeholder="请输入形象名称"
-            style="width: 140px"
-          />
-        </NFormItem>
-        <NFormItem label="图片预览">
-          <div class="flex gap-8 items-start">
-            <div class="flex flex-col items-center">
-              <div
-                class="img-preview-wrapper cursor-pointer"
-                @click="modalForm.ori_img && handleImagePreview(modalForm.ori_img, '原始图片')"
-              >
-                <img v-if="modalForm.ori_img" :src="modalForm.ori_img" class="w-80 h-80" />
-                <div v-else class="img-placeholder">暂无原始图片</div>
+        <div class="flex gap-16 items-start">
+          <NFormItem
+            label="形象名称"
+            path="name"
+            :rule="{
+              required: true,
+              message: '请输入形象名称',
+              trigger: ['input', 'blur'],
+            }"
+          >
+            <NInput
+              v-model:value="modalForm.name"
+              placeholder="请输入形象名称"
+              style="width: 140px"
+            />
+          </NFormItem>
+          <NFormItem label="图片预览">
+            <div class="flex gap-8 items-start">
+              <div class="flex flex-col items-center">
+                <div
+                  class="img-preview-wrapper cursor-pointer"
+                  @click="modalForm.ori_img && handleImagePreview(modalForm.ori_img, '原始图片')"
+                >
+                  <img v-if="modalForm.ori_img" :src="modalForm.ori_img" class="w-80 h-80" />
+                  <div v-else class="img-placeholder">暂无原始图片</div>
+                </div>
+                <div class="mt-2 text-gray-600">原始图片</div>
               </div>
-              <div class="mt-2 text-gray-600">原始图片</div>
-            </div>
 
-            <div class="flex flex-col items-center">
-              <div
-                class="img-preview-wrapper cursor-pointer"
-                @click="modalForm.gen_img && handleImagePreview(modalForm.gen_img, '生成图片')"
-              >
-                <img v-if="modalForm.gen_img" :src="modalForm.gen_img" class="w-80 h-80" />
-                <div v-else class="img-placeholder">暂无生成图片</div>
+              <div class="flex flex-col items-center">
+                <div
+                  class="img-preview-wrapper cursor-pointer"
+                  @click="modalForm.gen_img && handleImagePreview(modalForm.gen_img, '生成图片')"
+                >
+                  <img v-if="modalForm.gen_img" :src="modalForm.gen_img" class="w-80 h-80" />
+                  <div v-else class="img-placeholder">暂无生成图片</div>
+                </div>
+                <div class="mt-2 text-gray-600">生成图片</div>
               </div>
-              <div class="mt-2 text-gray-600">生成图片</div>
+            </div>
+          </NFormItem>
+        </div>
+        <div class="text-center font-bold mb-4">系统状态视频</div>
+        <div v-if="modalForm.id" class="grid grid-cols-4 gap-4 w-full">
+          <div
+            v-for="emotion in sysStatus"
+            :key="emotion.key"
+            class="flex flex-col items-center gap-2"
+          >
+            <NTag type="info">{{ emotion.label }}</NTag>
+            <div
+              class="flex items-center justify-center w-full h-150 border-dashed border-gray-300 rounded"
+            >
+              <video
+                v-if="modalForm.sys_vids?.[emotion.key]?.url"
+                :src="modalForm.sys_vids[emotion.key].url"
+                :key="modalForm.sys_vids[emotion.key].hash"
+                class="max-h-full max-w-full rounded"
+                controls
+              />
+              <span v-else class="text-gray-400">暂无视频</span>
+            </div>
+            <div class="flex justify-center gap-4 mt-3">
+              <NUpload
+                :show-file-list="false"
+                accept="video/mp4"
+                :on-change="(fileList) => handleEditVideoUpload(emotion.key, fileList, 'sys_vids')"
+              >
+                <NButton size="small" type="primary" :loading="editVideoUping[emotion.key]">
+                  {{ editVideoUping[emotion.key] ? '上传中...' : '上传替换' }}
+                </NButton>
+              </NUpload>
             </div>
           </div>
-        </NFormItem>
-        <div class="text-center font-bold mb-4">形象视频</div>
+        </div>
+        <div class="text-center font-bold mb-4">表情视频</div>
         <div v-if="modalForm.id" class="grid grid-cols-5 gap-4 w-full">
           <div
             v-for="emotion in emotions"
@@ -1059,7 +1347,7 @@ const columns = [
               <NUpload
                 :show-file-list="false"
                 accept="video/mp4"
-                :on-change="(fileList) => handleEditVideoUpload(emotion.key, fileList)"
+                :on-change="(fileList) => handleEditVideoUpload(emotion.key, fileList, 'gen_vids')"
               >
                 <NButton size="small" type="primary" :loading="editVideoUping[emotion.key]">
                   {{ editVideoUping[emotion.key] ? '上传中...' : '上传替换' }}
@@ -1089,7 +1377,17 @@ const columns = [
       :segmented="{ content: true }"
     >
       <div class="flex justify-center items-center">
-        <img :src="imagePreviewUrl" style="max-width: 100%; max-height: 80vh" />
+        <img
+          v-if="imagePreviewType === 'image'"
+          :src="imagePreviewUrl"
+          style="max-width: 100%; max-height: 80vh"
+        />
+        <video
+          v-if="imagePreviewType === 'video'"
+          :src="imagePreviewUrl"
+          controls
+          style="max-width: 100%; max-height: 80vh"
+        />
       </div>
     </NModal>
   </CommonPage>

@@ -118,6 +118,9 @@ class ProfileCreate(BaseModel):
     method: Optional[str] = Field(default=None, description='生成方式，支持 bailian')
     status: Optional[str] = Field(default=None, description='形象状态')
     subject_type: Optional[SubjectType] = Field(default=None, description='形象主体类型')
+    sys_vids: Optional[dict] = Field(default=None, description='系统状态视频，emotion-url 字典')
+    profile_vid: Optional[str] = Field(default=None, description='形象展示视频')
+    avatar: Optional[str] = Field(default=None, description='头像')
 
 
 class ProfileUpdate(ProfileCreate): ...

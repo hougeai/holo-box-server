@@ -275,33 +275,6 @@ async def get_template(
     return Success(data=data)
 
 
-@router.post('/template/upload', summary='智能体模板上传头像和形象视频')
-async def template_upload(
-    id: int = Form(..., description='ID'),
-    source: UploadFile = File(...),
-    source_type: str = Form('avatar', description='上传类型：avatar/profile-vid等'),
-):
-    if source_type not in ['avatar', 'profile-vid']:
-        return Fail(code=400, msg='上传类型错误')
-    obj = await AgentTemplate.get(id=id)
-    if not obj:
-        return Fail(code=400, msg='智能体模板不存在')
-    source = await source.read()
-    suffix = 'png' if source_type == 'avatar' else 'mp4'
-    key = f'template/{id}-{source_type}.{suffix}'
-    result = await oss.upload_file_async(key, file_data=source)
-    if not result:
-        return Fail(code=400, msg=f'上传{source_type}失败')
-    url = f'{settings.OSS_BUCKET_URL}/{key}'
-    if source_type == 'avatar':
-        obj.avatar = url
-    elif source_type == 'profile-vid':
-        obj.profile_vid = url
-    await obj.save()
-    data = await obj.to_dict()
-    return Success(data=data)
-
-
 # 形象相关
 @router.get('/profile/list', summary='查看形象列表')
 async def list_profile(
@@ -457,6 +430,33 @@ async def upload_vid(
     # 计算视频文件的hash值，用于检测文件是否被覆盖
     video_hash = hashlib.sha256(video_data).hexdigest()
     return Success(data={'video_url': video_url, 'video_hash': video_hash})
+
+
+@router.post('/profile/upload-src', summary='形象上传头像和形象展示视频')
+async def upload_src(
+    id: int = Form(..., description='ID'),
+    source: UploadFile = File(...),
+    source_type: str = Form('avatar', description='上传类型：avatar/profile_vid等'),
+):
+    if source_type not in ['avatar', 'profile_vid']:
+        return Fail(code=400, msg='上传类型错误')
+    obj = await Profile.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='形象不存在')
+    source = await source.read()
+    suffix = 'png' if source_type == 'avatar' else 'mp4'
+    key = f'profile/src/{id}-{source_type}.{suffix}'
+    result = await oss.upload_file_async(key, file_data=source)
+    if not result:
+        return Fail(code=400, msg=f'上传{source_type}失败')
+    url = f'{settings.OSS_BUCKET_URL}/{key}'
+    if source_type == 'avatar':
+        obj.avatar = url
+    elif source_type == 'profile_vid':
+        obj.profile_vid = url
+    await obj.save()
+    data = await obj.to_dict()
+    return Success(data=data)
 
 
 @router.post('/profile/update', summary='手动创建形象(上传视频url)/更新形象')
