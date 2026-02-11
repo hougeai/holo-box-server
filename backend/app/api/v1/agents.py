@@ -177,7 +177,7 @@ async def list_agent_template(
         q &= Q(agent_name__contains=agent_name)
     if public is not None:
         q &= Q(public=public)
-    total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
+    total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['order', '-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
@@ -209,7 +209,16 @@ async def update_agent_template(
     if not obj:
         return Fail(code=400, msg='AgentTemplate not found')
     update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
-    local_only_fields = {'avatar', 'profile_id', 'public', 'desc', 'system_prompt'}
+    local_only_fields = {
+        'avatar',
+        'profile_id',
+        'profile_img',
+        'profile_vid',
+        'public',
+        'desc',
+        'system_prompt',
+        'order',
+    }
     has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:
@@ -245,6 +254,33 @@ async def get_template(
     obj = await agent_template_controller.get(id=id)
     if not obj:
         return Fail(code=400, msg='AgentTemplate not found')
+    data = await obj.to_dict()
+    return Success(data=data)
+
+
+@router.post('/template/upload', summary='智能体模板上传头像和形象视频')
+async def template_upload(
+    id: int = Form(..., description='ID'),
+    source: UploadFile = File(...),
+    source_type: str = Form('avatar', description='上传类型：avatar/profile-vid等'),
+):
+    if source_type not in ['avatar', 'profile-vid']:
+        return Fail(code=400, msg='上传类型错误')
+    obj = await AgentTemplate.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='智能体模板不存在')
+    source = await source.read()
+    suffix = 'png' if source_type == 'avatar' else 'mp4'
+    key = f'template/{id}-{source_type}.{suffix}'
+    result = await oss.upload_file_async(key, file_data=source)
+    if not result:
+        return Fail(code=400, msg=f'上传{source_type}失败')
+    url = f'{settings.OSS_BUCKET_URL}/{key}'
+    if source_type == 'avatar':
+        obj.avatar = url
+    elif source_type == 'profile-vid':
+        obj.profile_vid = url
+    await obj.save()
     data = await obj.to_dict()
     return Success(data=data)
 

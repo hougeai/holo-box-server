@@ -39,6 +39,8 @@ export default {
   createAgentTemplate: (data = {}) => request.post('/agent/template/create', data),
   updateAgentTemplate: (data = {}) => request.post('/agent/template/update', data),
   deleteAgentTemplate: (params = {}) => request.delete('/agent/template/delete', { params }),
+  uploadAgentTemplate: (data = {}) =>
+    request.post('/agent/template/upload', data, { timeout: 120000 }),
   // resource-profile
   getProfileList: (params = {}) => request.get('/agent/profile/list', { params }),
   profileUploadImg: (data = {}) =>

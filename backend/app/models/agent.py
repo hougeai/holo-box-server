@@ -18,9 +18,12 @@ class AgentTemplate(BaseModel, TimestampMixin):
     tts_pitch = fields.IntField(default=0, null=True, description='TTS音调')
     avatar = fields.TextField(null=True, description='头像')
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
+    profile_img = fields.TextField(null=True, description='形象照片')
+    profile_vid = fields.TextField(null=True, description='形象视频')
     public = fields.BooleanField(default=False, null=True, description='是否公开')
     desc = fields.TextField(null=True, description='智能体的功能特性描述')
     system_prompt = fields.TextField(null=True, description='系统提示词-管理员添加')
+    order = fields.IntField(default=0, null=True, description='排序')
 
 
 # agent表

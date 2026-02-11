@@ -508,14 +508,44 @@ const columns = [
     width: 30,
     align: 'center',
     render: (row) => {
-      return row.ori_img
-        ? h('img', {
+      if (!row.ori_img) {
+        return h('span', { style: 'color: #ccc;' }, '-')
+      }
+
+      return h(
+        'div',
+        {
+          style: 'position: relative; width: 50px; height: 50px;',
+        },
+        [
+          h('img', {
             src: row.ori_img,
             style:
               'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
-            onClick: () => window.open(row.ori_img, '_blank'),
-          })
-        : h('span', { style: 'color: #ccc;' }, '-')
+          }),
+          h(
+            'div',
+            {
+              style:
+                'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+              onMouseenter: (e) => (e.target.style.opacity = '1'),
+              onMouseleave: (e) => (e.target.style.opacity = '0'),
+            },
+            [
+              h(
+                NButton,
+                {
+                  size: 'tiny',
+                  type: 'primary',
+                  text: true,
+                  onClick: () => handleImagePreview(row.ori_img, '原始图片'),
+                },
+                { icon: renderIcon('material-symbols:visibility') },
+              ),
+            ],
+          ),
+        ],
+      )
     },
   },
   {
@@ -524,14 +554,44 @@ const columns = [
     width: 30,
     align: 'center',
     render: (row) => {
-      return row.gen_img
-        ? h('img', {
+      if (!row.gen_img) {
+        return h('span', { style: 'color: #ccc;' }, '-')
+      }
+
+      return h(
+        'div',
+        {
+          style: 'position: relative; width: 50px; height: 50px;',
+        },
+        [
+          h('img', {
             src: row.gen_img,
             style:
               'width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;',
-            onClick: () => window.open(row.gen_img, '_blank'),
-          })
-        : h('span', { style: 'color: #ccc;' }, '-')
+          }),
+          h(
+            'div',
+            {
+              style:
+                'position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; opacity: 0; transition: opacity 0.2s;',
+              onMouseenter: (e) => (e.target.style.opacity = '1'),
+              onMouseleave: (e) => (e.target.style.opacity = '0'),
+            },
+            [
+              h(
+                NButton,
+                {
+                  size: 'tiny',
+                  type: 'primary',
+                  text: true,
+                  onClick: () => handleImagePreview(row.gen_img, '生成图片'),
+                },
+                { icon: renderIcon('material-symbols:visibility') },
+              ),
+            ],
+          ),
+        ],
+      )
     },
   },
   {

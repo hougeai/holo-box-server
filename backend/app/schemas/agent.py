@@ -19,9 +19,12 @@ class AgentTemplateCreate(BaseModel):
     tts_pitch: Optional[int] = Field(default=None, description='TTS音调')
     avatar: Optional[str] = Field(default=None, description='头像')
     profile_id: Optional[int] = Field(default=None, description='形象ID')
+    profile_img: Optional[str] = Field(default=None, description='形象图片')
+    profile_vid: Optional[str] = Field(default=None, description='形象视频')
     public: Optional[bool] = Field(default=False, description='是否公开')
     desc: Optional[str] = Field(default=None, description='智能体的功能特性描述')
     system_prompt: Optional[str] = Field(default=None, description='系统提示词-管理员添加')
+    order: Optional[int] = Field(default=0, description='排序')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
