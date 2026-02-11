@@ -5,6 +5,7 @@ import io
 import json
 import os
 from PIL import Image
+from openai import AsyncOpenAI
 from models.agent import Profile
 from .config import settings
 from .log import logger
@@ -20,13 +21,13 @@ def _load_prompts():
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
             config = json.load(f)
-        return config.get('img_prompt', {}), config.get('vid_prompts', {})
+        return config.get('img_prompt', {}), config.get('vid_prompts', {}), config.get('char_polish_prompt', {})
     except Exception as e:
         logger.error(f'加载 prompt 配置文件失败: {e}')
         return {}, {}
 
 
-img_prompt, vid_prompts = _load_prompts()
+img_prompt, vid_prompts, char_polish_prompt = _load_prompts()
 
 
 class BailianService:
@@ -261,3 +262,28 @@ class BailianService:
 
 
 bl_service = BailianService()
+
+
+class LLM:
+    def __init__(self):
+        self.client = AsyncOpenAI(
+            api_key=settings.BAILIAN_KEY, base_url='https://dashscope.aliyuncs.com/compatible-mode/v1'
+        )
+        self.model = 'qwen-flash'
+
+    async def __call__(self, content, temperature=0.7):
+        try:
+            messages = [
+                {'role': 'system', 'content': char_polish_prompt},
+                {'role': 'user', 'content': content},
+            ]
+            completion = await self.client.chat.completions.create(
+                model=self.model, messages=messages, temperature=temperature, stream=False
+            )
+            return completion.choices[-1].message.content
+        except Exception as e:
+            logger.error(f'LLM error: {e}')
+            return ''
+
+
+llm = LLM()

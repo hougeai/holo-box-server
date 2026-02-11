@@ -71,6 +71,25 @@ const productMcpList = ref([])
 const agentTemplateList = ref([])
 // 当前播放的音频 URL
 const currentPlayingAudio = ref(null)
+// 角色提示词润色中
+const characterPolishing = ref(false)
+
+// 角色提示词润色
+const handlePolishCharacter = async () => {
+  characterPolishing.value = true
+  try {
+    const res = await api.polishCharacter({ character: modalForm.value.character })
+    if (res.data) {
+      modalForm.value.character = res.data
+      $message.success('角色提示词优化成功')
+    }
+  } catch (error) {
+    console.error('角色提示词优化失败:', error)
+    $message.error('角色提示词优化失败')
+  } finally {
+    characterPolishing.value = false
+  }
+}
 
 // 获取LLM列表
 const fetchLlmList = async () => {
@@ -347,6 +366,60 @@ watch(
   { immediate: true },
 )
 
+// 清理无效的MCP端点
+const cleanInvalidMcpEndpoints = () => {
+  if (modalForm.value.mcp_endpoints && mcpList.value.length > 0) {
+    const validEndpointIds = new Set(mcpList.value.map((mcp) => mcp.endpoint_id))
+    modalForm.value.mcp_endpoints = modalForm.value.mcp_endpoints.filter((id) =>
+      validEndpointIds.has(id),
+    )
+  }
+  if (modalForm.value.product_mcp_endpoints && productMcpList.value.length > 0) {
+    const validEndpointIds = new Set(productMcpList.value.map((mcp) => mcp.endpoint_id))
+    modalForm.value.product_mcp_endpoints = modalForm.value.product_mcp_endpoints.filter((id) =>
+      validEndpointIds.has(id),
+    )
+  }
+}
+
+// 监听mcpList更新，自动过滤modalForm中的无效mcp_endpoints
+watch(
+  mcpList,
+  () => {
+    if (modalForm.value.mcp_endpoints) {
+      const validEndpointIds = new Set(mcpList.value.map((mcp) => mcp.endpoint_id))
+      modalForm.value.mcp_endpoints = modalForm.value.mcp_endpoints.filter((id) =>
+        validEndpointIds.has(id),
+      )
+    }
+  },
+  { deep: true },
+)
+
+// 监听productMcpList更新，自动过滤modalForm中的无效product_mcp_endpoints
+watch(
+  productMcpList,
+  () => {
+    if (modalForm.value.product_mcp_endpoints) {
+      const validEndpointIds = new Set(productMcpList.value.map((mcp) => mcp.endpoint_id))
+      modalForm.value.product_mcp_endpoints = modalForm.value.product_mcp_endpoints.filter((id) =>
+        validEndpointIds.has(id),
+      )
+    }
+  },
+  { deep: true },
+)
+
+// 监听modalVisible，当打开编辑弹窗时清理无效的MCP端点
+watch(
+  () => modalVisible.value,
+  (visible) => {
+    if (visible) {
+      cleanInvalidMcpEndpoints()
+    }
+  },
+)
+
 onMounted(async () => {
   $table.value?.handleSearch()
   await Promise.all([
@@ -614,39 +687,40 @@ const columns = [
             </NSpace>
           </NRadioGroup>
         </NFormItem>
-        <NFormItem
-          label="智能体名称"
-          path="agent_name"
-          :rule="{
-            required: true,
-            message: '请输入智能体名称',
-            trigger: ['input', 'blur'],
-          }"
-        >
-          <NInput
-            v-model:value="modalForm.agent_name"
-            placeholder="请输入智能体名称"
-            maxlength="20"
-            show-count
-          />
-        </NFormItem>
-        <NFormItem
-          label="助手名称"
-          path="assistant_name"
-          :rule="{
-            required: true,
-            message: '请输入助手名称',
-            trigger: ['input', 'blur'],
-          }"
-        >
-          <NInput
-            v-model:value="modalForm.assistant_name"
-            placeholder="请输入助手名称"
-            maxlength="20"
-            show-count
-          />
-        </NFormItem>
-
+        <div class="flex gap-16">
+          <NFormItem
+            label="智能体名称"
+            path="agent_name"
+            :rule="{
+              required: true,
+              message: '请输入智能体名称',
+              trigger: ['input', 'blur'],
+            }"
+          >
+            <NInput
+              v-model:value="modalForm.agent_name"
+              placeholder="请输入智能体名称"
+              maxlength="20"
+              show-count
+            />
+          </NFormItem>
+          <NFormItem
+            label="助手名称"
+            path="assistant_name"
+            :rule="{
+              required: true,
+              message: '请输入助手名称',
+              trigger: ['input', 'blur'],
+            }"
+          >
+            <NInput
+              v-model:value="modalForm.assistant_name"
+              placeholder="请输入助手名称"
+              maxlength="20"
+              show-count
+            />
+          </NFormItem>
+        </div>
         <NFormItem
           label="角色提示词"
           path="character"
@@ -656,6 +730,18 @@ const columns = [
             trigger: ['input', 'blur'],
           }"
         >
+          <template #label>
+            <span>角色提示词</span>
+            <NButton
+              type="primary"
+              size="tiny"
+              :loading="characterPolishing"
+              :disabled="!modalForm.character || !modalForm.character.trim()"
+              @click="handlePolishCharacter"
+            >
+              AI一键优化
+            </NButton>
+          </template>
           <NInput
             v-model:value="modalForm.character"
             type="textarea"
@@ -664,7 +750,8 @@ const columns = [
             placeholder="请输入角色提示词"
             maxlength="1000"
             show-count
-          />
+          >
+          </NInput>
         </NFormItem>
         <NFormItem
           label="语言模型"

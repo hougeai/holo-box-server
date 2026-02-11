@@ -6,7 +6,7 @@ from tortoise.expressions import Q
 from core.background import CTX_USER_ID, BgTasks
 from core.log import logger
 from core.xz_api import xz_service
-from core.profile_api import bl_service
+from core.profile_api import bl_service, llm
 from core.minio import oss
 from core.config import settings
 from core.mcp_manager import mcp_manager
@@ -22,6 +22,7 @@ from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import (
     AgentCreate,
     AgentUpdate,
+    CharacterPolish,
     AgentTemplateCreate,
     AgentTemplateUpdate,
     ProfileVidGen,
@@ -131,6 +132,22 @@ async def delete_agent(
         return Fail(code=400, msg=f'服务端删除失败: {msg}')
     await agent_controller.remove(id=id)
     return Success(msg='Deleted Successfully')
+
+
+@router.post('/polish-character', summary='角色提示词润色')
+async def polish_character(
+    obj_in: CharacterPolish,
+):
+    if not obj_in.character.strip():
+        return Fail(code=400, msg='请输入角色提示词')
+    try:
+        character = await llm(obj_in.character)
+        if not character:
+            return Fail(code=500, msg='角色提示词润色服务异常')
+        return Success(data=character)
+    except Exception as e:
+        logger.error(f'角色提示词润色失败: {e}')
+        return Fail(code=500, msg='角色提示词润色失败')
 
 
 @router.get('/voice/list', summary='TTS voice 列表')

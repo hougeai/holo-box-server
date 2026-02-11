@@ -34,6 +34,8 @@ export default {
   getVoiceList: (params = {}) => request.get('/agent/voice/list', { params }),
   getLlmList: () => request.get('/agent/llm/list'),
   updateVoice: (data = {}) => request.post('/agent/voice/update', data),
+  polishCharacter: (data = {}) =>
+    request.post('/agent/polish-character', data, { timeout: 120000 }),
   // resource-agentTemplate
   getAgentTemplateList: (params = {}) => request.get('/agent/template/list', { params }),
   createAgentTemplate: (data = {}) => request.post('/agent/template/create', data),

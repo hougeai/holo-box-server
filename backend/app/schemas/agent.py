@@ -66,6 +66,10 @@ class AgentUpdate(AgentCreate):
     user_id: Optional[str] = Field(default=None, description='用户ID')
 
 
+class CharacterPolish(BaseModel):
+    character: str = Field(description='角色提示词')
+
+
 # ========== LLM ==========
 
 
