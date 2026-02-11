@@ -251,7 +251,7 @@ watch(
     if (profile) {
       modalForm.value.avatar = profile.avatar
       modalForm.value.profile_img = profile.gen_img
-      modalForm.value.profile_vid = profile.gen_vid
+      modalForm.value.profile_vid = profile.profile_vid
     }
   },
   { immediate: true },
