@@ -128,9 +128,12 @@ class BailianService:
         headers = self.headers.copy()
         headers['X-DashScope-Async'] = 'enable'
         url = f'{self.base_url}/services/aigc/video-generation/video-synthesis'
+        # url = f'{self.base_url}/services/aigc/image2video/video-synthesis'
         data = {
             'model': 'wan2.2-i2v-flash',
             'input': {'prompt': prompt, 'img_url': img_url},
+            # 'model': 'wan2.2-kf2v-flash',
+            # 'input': {'prompt': prompt, 'first_frame_url': img_url, 'last_frame_url': img_url},
             'parameters': {'resolution': '720P', 'duration': 5},
         }
         res, msg = await self._make_request('POST', url, headers, json=data)
