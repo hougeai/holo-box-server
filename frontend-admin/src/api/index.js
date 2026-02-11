@@ -37,7 +37,7 @@ export default {
   polishCharacter: (data = {}) =>
     request.post('/agent/polish-character', data, { timeout: 120000 }),
   // resource-agentTemplate
-  getAgentTemplateList: (params = {}) => request.get('/agent/template/list', { params }),
+  getAgentTemplateList: (params = {}) => request.get('/base/template/list', { params }),
   createAgentTemplate: (data = {}) => request.post('/agent/template/create', data),
   updateAgentTemplate: (data = {}) => request.post('/agent/template/update', data),
   deleteAgentTemplate: (params = {}) => request.delete('/agent/template/delete', { params }),

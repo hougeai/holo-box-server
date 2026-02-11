@@ -21,6 +21,7 @@ async def list_device(
     user_id: str = Query('', description='用户ID，用于搜索'),
     device_id: str = Query('', description='设备ID，用于搜索'),
     device_model: str = Query('', description='产品类型，用于搜索'),
+    agent_id: str = Query('', description='智能体ID，用于搜索'),
 ):
     q = Q()
     if user_id:
@@ -29,6 +30,8 @@ async def list_device(
         q &= Q(device_id__contains=device_id)  # SQL: WHERE user_name LIKE '%xxx%'；user_name=user_name 精确匹配
     if device_model:
         q &= Q(device_model__contains=device_model)
+    if agent_id:
+        q &= Q(agent_id=agent_id)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
     total, objs = await device_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
