@@ -181,24 +181,6 @@ async def list_llm():
     return Success(data=data)
 
 
-# 智能体模板
-@router.get('/template/list', summary='查看智能体模板列表')
-async def list_agent_template(
-    page: int = Query(1, description='页码'),
-    page_size: int = Query(999, description='每页数量'),
-    agent_name: Optional[str] = Query('', description='智能体模板名称，用于搜索'),
-    public: Optional[bool] = Query(None, description='是否公开，用户前端传入true'),
-):
-    q = Q()
-    if agent_name:
-        q &= Q(agent_name__contains=agent_name)
-    if public is not None:
-        q &= Q(public=public)
-    total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['order', '-id'])
-    data = [await obj.to_dict() for obj in objs]
-    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
-
-
 @router.post('/template/create', summary='创建智能体模板')
 async def create_agent_template(
     obj_in: AgentTemplateCreate,

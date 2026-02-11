@@ -20,8 +20,9 @@ def test_wxlogin():
 
 
 def test_template():
-    headers = {'token': 'dev'}
-    response = client.get('agent/template/?id=453', headers=headers)
+    # headers = {'token': 'dev'}
+    # response = client.get('agent/template/?id=453', headers=headers)
+    response = client.get('base/template/list', headers=headers)
     print(response.status_code, response.json())
 
 
@@ -107,9 +108,9 @@ if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
     # test_ota()
-    # test_template()
-    import asyncio
+    test_template()
+    # import asyncio
 
     # asyncio.run(test_xz())
     # asyncio.run(test_wx())
-    asyncio.run(test_profile())
+    # asyncio.run(test_profile())

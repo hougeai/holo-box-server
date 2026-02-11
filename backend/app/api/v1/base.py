@@ -1,6 +1,8 @@
 import jwt
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Request
+from typing import Optional
+from tortoise.expressions import Q
+from fastapi import APIRouter, Request, Query
 from core.config import settings
 from core.background import CTX_USER_ID
 from core.dependency import DependAuth
@@ -8,9 +10,9 @@ from core.security import create_token, get_password_hash, verify_password
 from core.verifycode import RedisManager
 from core.log import logger
 from core.wx_api import wx_service
-from controllers import user_controller
+from controllers import user_controller, agent_template_controller
 from models.admin import Api, Menu, RoleApi, RoleMenu
-from schemas.base import Fail, Success
+from schemas.base import Fail, Success, SuccessExtra
 from schemas.login import CredentialsSchema, JWTPayload, JWTOut, WxLoginRequest, WxPhoneRequest
 from schemas.admin import UserCreate, UpdatePassword
 
@@ -218,3 +220,22 @@ async def wx_phone(request: WxPhoneRequest):
     except Exception as e:
         logger.error(f'请求wx_phone失败: {e}')
         return Fail(msg=f'请求wx_phone失败: {e}')
+
+
+# 放置不需要验证的接口
+# 智能体模板
+@router.get('/template/list', summary='查看智能体模板列表')
+async def list_agent_template(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(999, description='每页数量'),
+    agent_name: Optional[str] = Query('', description='智能体模板名称，用于搜索'),
+    public: Optional[bool] = Query(None, description='是否公开，用户前端传入true'),
+):
+    q = Q()
+    if agent_name:
+        q &= Q(agent_name__contains=agent_name)
+    if public is not None:
+        q &= Q(public=public)
+    total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['order', '-id'])
+    data = [await obj.to_dict() for obj in objs]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
