@@ -102,6 +102,7 @@ async def unbind_device(
         # 1. device和用户解绑：主键 id 查询已经是唯一的，不需要.first()调用；新增is_unbound表示这个设备解绑过；必须用orm的.save()才能自动更新update_at字段
         device.user_id = None
         device.agent_id = None
+        device.device_id = None
         device.last_conversation = None
         device.alias = None
         device.is_unbound = True
@@ -147,7 +148,9 @@ async def bind_device(obj_in: DeviceBind):
         agent = res['data'].get('agent')
         agent['agent_id'] = agent.pop('id', agent_id)
         agent['device_count'] = agent.pop('deviceCount', 0)
-        await Agent.create(user_id=user_id, **{k: v for k, v in agent.items() if v is not None})
+        # 覆盖agent中的user_id，用我们库中的user_id
+        agent['user_id'] = user_id
+        await Agent.create(**{k: v for k, v in agent.items() if v is not None})
 
     # 判断是否有设备，如果没有则要创建一条设备记录
     device = await device_controller.get_by_mac(data.get('mac_address', ''))
