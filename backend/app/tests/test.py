@@ -107,8 +107,8 @@ async def test_profile():
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
-    # test_ota()
-    test_template()
+    test_ota()
+    # test_template()
     # import asyncio
 
     # asyncio.run(test_xz())

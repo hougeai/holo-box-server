@@ -367,8 +367,7 @@ async def generate_vid_edit(
             logger.error(f'生成形象视频失败: {msg}')
             return Fail(code=400, msg=f'生成形象视频失败: {msg}')
         # 下载百炼生成的视频并上传到 oss
-        suffix = hashlib.sha256(f'{obj_in.id}-{obj_in.emotion}'.encode()).hexdigest()[:4]
-        video_key = f'profile/vid/{obj_in.id}-{obj_in.emotion}-{suffix}.mp4'
+        video_key = f'profile/vid/{obj_in.id}/{obj_in.emotion}.mp4'
         video_data, content_type = await bl_service.download_file(video_url, 'video/mp4')
         result = await oss.upload_file_async(video_key, file_data=video_data, content_type=content_type)
         if not result:
@@ -398,8 +397,7 @@ async def upload_vid(
     emotion: str = Form(..., description='情绪'),
     video: UploadFile = File(...),
 ):
-    suffix = hashlib.sha256(f'{id}-{emotion}'.encode()).hexdigest()[:4]
-    video_key = f'profile/vid/{id}-{emotion}-{suffix}.mp4'
+    video_key = f'profile/vid/{id}/{emotion}.mp4'
     video_data = await video.read()
     upload_result = await oss.upload_file_async(
         video_key,

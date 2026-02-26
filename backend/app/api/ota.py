@@ -78,14 +78,22 @@ async def ota(request: Request):
                 agent = await Agent.filter(agent_id=agent_id).first()
                 profile = await Profile.get(id=agent.profile_id)
                 gen_vids = profile.gen_vids
+                sys_vids = profile.sys_vids
                 # 转成设备需要的数据
                 results = []
-                for k, v in gen_vids.items():
-                    for item in emoji_dict[k]:
-                        item['url'] = v.get('url', '')
-                        item['hash'] = v.get('hash', '')
-                        results.append(item)
+                if profile.gen_vids:
+                    for k, v in gen_vids.items():
+                        for item in emoji_dict[k]:
+                            item['url'] = v.get('url', '')
+                            item['hash'] = v.get('hash', '')
+                            results.append(item)
                 res_data['profile'] = results
+                results = []
+                if profile.sys_vids:
+                    for k, v in sys_vids.items():
+                        item = {'code': k, 'url': v.get('url', ''), 'hash': v.get('hash', '')}
+                        results.append(item)
+                res_data['system'] = results
         except Exception as e:
             logger.error(f'获取形象信息失败: {mac_address} {e}')
         # 设备已存在，更新设备信息
