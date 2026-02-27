@@ -303,6 +303,13 @@ const columns = [
     },
   },
   {
+    title: '唤醒词',
+    key: 'wakeup',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
     title: '形象ID',
     key: 'profile_id',
     width: 30,
@@ -819,6 +826,14 @@ const columns = [
             clearable
             placeholder="请输入功能描述"
             maxlength="200"
+            show-count
+          />
+        </NFormItem>
+        <NFormItem label="唤醒词" path="wakeup" class="flex-1">
+          <NInput
+            v-model:value="modalForm.wakeup"
+            placeholder="请输入唤醒词"
+            maxlength="24"
             show-count
           />
         </NFormItem>

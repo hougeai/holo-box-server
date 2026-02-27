@@ -24,6 +24,7 @@ class AgentTemplate(BaseModel, TimestampMixin):
     desc = fields.TextField(null=True, description='智能体的功能特性描述')
     system_prompt = fields.TextField(null=True, description='系统提示词-管理员添加')
     order = fields.IntField(default=0, null=True, description='排序')
+    wakeup = fields.CharField(max_length=64, null=True, description='唤醒词')
 
 
 # agent表

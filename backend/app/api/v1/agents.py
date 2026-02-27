@@ -217,6 +217,7 @@ async def update_agent_template(
         'desc',
         'system_prompt',
         'order',
+        'wakeup',
     }
     has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
     # 如果有需要远程更新的字段，则调用远端服务

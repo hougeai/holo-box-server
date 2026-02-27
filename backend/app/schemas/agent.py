@@ -25,6 +25,7 @@ class AgentTemplateCreate(BaseModel):
     desc: Optional[str] = Field(default=None, description='智能体的功能特性描述')
     system_prompt: Optional[str] = Field(default=None, description='系统提示词-管理员添加')
     order: Optional[int] = Field(default=0, description='排序')
+    wakeup: Optional[str] = Field(default=None, description='唤醒词')
 
 
 class AgentTemplateUpdate(AgentTemplateCreate):
