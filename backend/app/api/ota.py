@@ -94,6 +94,7 @@ async def ota(request: Request):
                         item = {'code': k, 'url': v.get('url', ''), 'hash': v.get('hash', '')}
                         results.append(item)
                 res_data['system'] = results
+                res_data['wakeup'] = {'text': '你好小智', 'pinyin': 'nihaoxiaozhi'}
         except Exception as e:
             logger.error(f'获取形象信息失败: {mac_address} {e}')
         # 设备已存在，更新设备信息

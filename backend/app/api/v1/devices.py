@@ -95,11 +95,16 @@ async def unbind_device(
     if device:
         if not device.user_id:
             return Fail(code=400, msg='设备已解绑')
-        # 0. 更新agent的devcice_count
+        # 1. 给远端发请求
+        result = await xz_service.unbind_device(deviceId=device.device_id)
+        if not result or not result['success']:
+            msg = result.get('message', '') if result else '未知'
+            return Fail(code=400, msg=f'远端设备解绑失败：{msg}')
+        # 2. 更新agent的devcice_count
         agent = await Agent.filter(agent_id=device.agent_id).first()
         await agent.update_from_dict({'device_count': agent.device_count - 1})
         await agent.save()
-        # 1. device和用户解绑：主键 id 查询已经是唯一的，不需要.first()调用；新增is_unbound表示这个设备解绑过；必须用orm的.save()才能自动更新update_at字段
+        # 3. device和用户解绑：主键 id 查询已经是唯一的，不需要.first()调用；新增is_unbound表示这个设备解绑过；必须用orm的.save()才能自动更新update_at字段
         device.user_id = None
         device.agent_id = None
         device.device_id = None
@@ -107,11 +112,7 @@ async def unbind_device(
         device.alias = None
         device.is_unbound = True
         await device.save()
-        # 5. 给远端发请求
-        result = await xz_service.unbind_device(deviceId=device.device_id)
-        if not result or not result['success']:
-            msg = result.get('message', '') if result else '未知'
-            return Fail(code=400, msg=f'远端设备解绑失败：{msg}')
+
         return Success(msg='Unbind Successfully')
     else:
         return Fail(msg='Device not found')
