@@ -493,6 +493,13 @@ const columns = [
     },
   },
   {
+    title: '唤醒词',
+    key: 'wakeup',
+    width: 30,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
     title: '形象ID',
     key: 'profile_id',
     width: 30,
@@ -796,22 +803,33 @@ const columns = [
           >
           </NInput>
         </NFormItem>
-        <NFormItem
-          label="语言模型"
-          path="llm_model"
-          :rule="{
-            required: true,
-            message: '请选择语言模型',
-            trigger: ['change', 'blur'],
-          }"
-        >
-          <NSelect
-            v-model:value="modalForm.llm_model"
-            :options="llmList.map((item) => ({ label: item.description, value: item.name }))"
-            placeholder="请选择语言模型"
-            clearable
-          />
-        </NFormItem>
+        <div class="flex gap-16">
+          <NFormItem
+            label="语言模型"
+            path="llm_model"
+            :rule="{
+              required: true,
+              message: '请选择语言模型',
+              trigger: ['change', 'blur'],
+            }"
+            class="flex-1"
+          >
+            <NSelect
+              v-model:value="modalForm.llm_model"
+              :options="llmList.map((item) => ({ label: item.description, value: item.name }))"
+              placeholder="请选择语言模型"
+              clearable
+            />
+          </NFormItem>
+          <NFormItem label="唤醒词" path="wakeup" class="flex-1">
+            <NInput
+              v-model:value="modalForm.wakeup"
+              placeholder="请输入唤醒词"
+              maxlength="24"
+              show-count
+            />
+          </NFormItem>
+        </div>
         <div class="flex gap-16">
           <NFormItem
             label="对话语言"

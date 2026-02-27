@@ -102,7 +102,7 @@ async def update_agent(
     if not obj:
         return Fail(code=400, msg='Agent not found')
     update_data = obj_in.model_dump(exclude_unset=True, exclude={'id'})
-    local_only_fields = {'avatar', 'profile_id'}
+    local_only_fields = {'avatar', 'profile_id', 'wakeup'}
     has_remote_fields = any(field not in local_only_fields for field in update_data.keys())
     # 如果有需要远程更新的字段，则调用远端服务
     if has_remote_fields:

@@ -1,4 +1,5 @@
 import aiohttp
+from pypinyin import lazy_pinyin
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from core.log import logger
@@ -76,6 +77,8 @@ async def ota(request: Request):
             agent_id = device.agent_id
             if agent_id:
                 agent = await Agent.filter(agent_id=agent_id).first()
+                wakeup_word = agent.wakeup if agent.wakeup else settings.DEFAULT_WAKEUP_WORD
+                wakeup_pinyin = ''.join(lazy_pinyin(wakeup_word))
                 profile = await Profile.get(id=agent.profile_id)
                 gen_vids = profile.gen_vids
                 sys_vids = profile.sys_vids
@@ -94,7 +97,7 @@ async def ota(request: Request):
                         item = {'code': k, 'url': v.get('url', ''), 'hash': v.get('hash', '')}
                         results.append(item)
                 res_data['system'] = results
-                res_data['wakeup'] = {'text': '你好小智', 'pinyin': 'nihaoxiaozhi'}
+                res_data['wakeup'] = {'text': wakeup_word, 'pinyin': wakeup_pinyin}
         except Exception as e:
             logger.error(f'获取形象信息失败: {mac_address} {e}')
         # 设备已存在，更新设备信息

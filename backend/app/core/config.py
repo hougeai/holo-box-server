@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     SUPER_ADMIN_PASSWORD: str = os.getenv('SUPER_ADMIN_PASSWORD', '')
     # 小智OTA地址
     XIAOZHI_OTA_URL: str = os.getenv('XIAOZHI_OTA_URL', '')
+    DEFAULT_WAKEUP_WORD: str = os.getenv('DEFAULT_WAKEUP_WORD', '你好小智')
     # 小智AI API
     XZ_API_URL: str = os.getenv('XZ_API_URL', '')
     XZ_API_KEY: str = os.getenv('XZ_API_KEY', '')

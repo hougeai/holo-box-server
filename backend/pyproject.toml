@@ -85,6 +85,7 @@ dependencies = [
     "mcp>=1.12.4",
     "mcp-proxy>=0.8.2",
     "fastmcp>=1.0",
+    "pypinyin>=0.55.0",
 ]
 
 

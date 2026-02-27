@@ -51,6 +51,7 @@ class Agent(BaseModel, TimestampMixin):
     profile_id = fields.IntField(null=True, index=True, description='形象ID')
     system_prompt = fields.TextField(null=True, description='系统提示词-管理员添加')
     product_mcp_endpoints = fields.JSONField(null=True, description='产品MCP端点')
+    wakeup = fields.CharField(max_length=64, null=True, description='唤醒词')
 
 
 # LLM表
