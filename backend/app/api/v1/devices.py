@@ -8,7 +8,7 @@ from schemas.device import (
     DeviceUpdate,
     DeviceBind,
 )
-from models.agent import Agent
+from models.agent import Agent, AgentTemplate
 
 
 router = APIRouter()
@@ -22,6 +22,7 @@ async def list_device(
     device_id: str = Query('', description='设备ID，用于搜索'),
     device_model: str = Query('', description='产品类型，用于搜索'),
     agent_id: str = Query('', description='智能体ID，用于搜索'),
+    mac_address: str = Query('', description='设备MAC，用于搜索'),
 ):
     q = Q()
     if user_id:
@@ -32,6 +33,8 @@ async def list_device(
         q &= Q(device_model__contains=device_model)
     if agent_id:
         q &= Q(agent_id=agent_id)
+    if mac_address:
+        q &= Q(mac_address__contains=mac_address)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
     total, objs = await device_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
@@ -151,6 +154,13 @@ async def bind_device(obj_in: DeviceBind):
         agent['device_count'] = agent.pop('deviceCount', 0)
         # 覆盖agent中的user_id，用我们库中的user_id
         agent['user_id'] = user_id
+        # 根据agent_template_id获取模板的相关字段填入
+        template = await AgentTemplate.filter(agent_id=agent.get('agent_template_id', '')).first()
+        if template:
+            agent['avatar'] = template.avatar
+            agent['profile_id'] = template.profile_id
+            agent['system_prompt'] = template.system_prompt
+            agent['wakeup'] = template.wakeup
         await Agent.create(**{k: v for k, v in agent.items() if v is not None})
 
     # 判断是否有设备，如果没有则要创建一条设备记录
