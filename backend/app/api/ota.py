@@ -78,7 +78,7 @@ async def ota(request: Request):
             if agent_id:
                 agent = await Agent.filter(agent_id=agent_id).first()
                 wakeup_word = agent.wakeup if agent.wakeup else settings.DEFAULT_WAKEUP_WORD
-                wakeup_pinyin = ''.join(lazy_pinyin(wakeup_word))
+                wakeup_pinyin = ' '.join(lazy_pinyin(wakeup_word))
                 profile = await Profile.get(id=agent.profile_id)
                 gen_vids = profile.gen_vids
                 sys_vids = profile.sys_vids
