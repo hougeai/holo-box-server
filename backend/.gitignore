@@ -28,3 +28,4 @@ migrations/
 !agent.json
 !profile.json
 .env
+*.mp4

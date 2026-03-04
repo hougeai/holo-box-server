@@ -104,13 +104,21 @@ async def test_profile():
     print(res)
 
 
+async def test_resizevid():
+    from core.utils import resize_video
+
+    result = await resize_video('happy.mp4', 'happy-resize.mp4')
+    print(result)
+
+
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
-    test_ota()
+    # test_ota()
     # test_template()
-    # import asyncio
+    import asyncio
 
     # asyncio.run(test_xz())
     # asyncio.run(test_wx())
     # asyncio.run(test_profile())
+    asyncio.run(test_resizevid())
