@@ -10,6 +10,7 @@ from core.profile_api import bl_service, llm
 from core.minio import oss
 from core.config import settings
 from core.mcp_manager import mcp_manager
+from core.utils import resize_video_in_memory
 from controllers import (
     agent_controller,
     agent_template_controller,
@@ -370,7 +371,11 @@ async def generate_vid_edit(
         # 下载百炼生成的视频并上传到 oss
         video_key = f'profile/vid/{obj_in.id}/{obj_in.emotion}.mp4'
         video_data, content_type = await bl_service.download_file(video_url, 'video/mp4')
-        result = await oss.upload_file_async(video_key, file_data=video_data, content_type=content_type)
+        # 转换视频尺寸
+        resized_data = await resize_video_in_memory(video_data)
+        if not resized_data:
+            return Fail(code=400, msg='视频转换失败')
+        result = await oss.upload_file_async(video_key, file_data=resized_data, content_type=content_type)
         if not result:
             logger.error('上传生成视频失败')
             return Fail(code=400, msg='上传生成视频失败')
@@ -400,16 +405,20 @@ async def upload_vid(
 ):
     video_key = f'profile/vid/{id}/{emotion}.mp4'
     video_data = await video.read()
+    # 转换视频尺寸
+    resized_data = await resize_video_in_memory(video_data)
+    if not resized_data:
+        return Fail(code=400, msg='视频转换失败')
     upload_result = await oss.upload_file_async(
         video_key,
-        file_data=video_data,
+        file_data=resized_data,
         content_type=video.content_type or 'application/octet-stream',
     )
     if not upload_result:
         return Fail(code=400, msg='上传视频文件失败')
     video_url = f'{settings.OSS_BUCKET_URL}/{video_key}'
-    # 计算视频文件的hash值，用于检测文件是否被覆盖
-    video_hash = hashlib.sha256(video_data).hexdigest()
+    # 计算转换后视频文件的hash值
+    video_hash = hashlib.sha256(resized_data).hexdigest()
     return Success(data={'video_url': video_url, 'video_hash': video_hash})
 
 
@@ -424,10 +433,15 @@ async def upload_src(
     obj = await Profile.get(id=id)
     if not obj:
         return Fail(code=400, msg='形象不存在')
-    source = await source.read()
+    source_data = await source.read()
+    if source_type == 'profile_vid':
+        resized_data = await resize_video_in_memory(source_data)
+        if not resized_data:
+            return Fail(code=400, msg='视频转换失败')
+        source_data = resized_data
     suffix = 'png' if source_type == 'avatar' else 'mp4'
     key = f'profile/src/{id}-{source_type}.{suffix}'
-    result = await oss.upload_file_async(key, file_data=source)
+    result = await oss.upload_file_async(key, file_data=source_data)
     if not result:
         return Fail(code=400, msg=f'上传{source_type}失败')
     url = f'{settings.OSS_BUCKET_URL}/{key}'
@@ -477,6 +491,17 @@ async def delete_profile(
             if info.get('url'):
                 key = info['url'].replace(settings.OSS_BUCKET_URL, '')
                 await oss.delete_file_async(key=key)
+    if obj.sys_vids:
+        for emotion, info in obj.sys_vids.items():
+            if info.get('url'):
+                key = info['url'].replace(settings.OSS_BUCKET_URL, '')
+                await oss.delete_file_async(key=key)
+    if obj.profile_vid:
+        key = obj.profile_vid.replace(settings.OSS_BUCKET_URL, '')
+        await oss.delete_file_async(key=key)
+    if obj.avatar:
+        key = obj.avatar.replace(settings.OSS_BUCKET_URL, '')
+        await oss.delete_file_async(key=key)
     await profile_controller.remove(id=id)
     return Success(msg='删除成功')
 

@@ -10,7 +10,7 @@ from models.agent import Profile
 from .config import settings
 from .log import logger
 from .minio import oss
-
+from .utils import resize_video_in_memory
 
 # 加载 prompt 配置文件
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'profile.json')
@@ -172,26 +172,38 @@ class BailianService:
         """
         vid_prompt = vid_prompts[subject_type]
         prompt = '\n'.join([vid_prompt['background'], vid_prompt['action'].get(emotion, '')])
-        # logger.info(f'百炼视频生成: {emotion} {prompt}')
-        task_id, task_status = await self.post_generate_video(prompt, img_url)
-        if not task_id:
-            return None, '百炼视频生成任务创建失败'
 
-        max_retries = 40  # 最大重试次数，最多等待200秒
-        retry_count = 0
+        max_attempts = 3  # 最大重试次数
+        attempt = 1
 
-        # 开始轮询获取结果
-        while task_status in ['PENDING', 'RUNNING'] and retry_count < max_retries:
+        while attempt <= max_attempts:
+            logger.info(f'百炼视频生成: {emotion} 第{attempt}次尝试')
+
+            task_id, task_status = await self.post_generate_video(prompt, img_url)
+            if not task_id:
+                if attempt >= max_attempts:
+                    return None, '百炼视频生成任务创建失败'
+                logger.warning(f'任务创建失败，等待后重试 [{attempt}/{max_attempts}]')
+                await asyncio.sleep(2)
+                attempt += 1
+                continue
+
+            # 轮询获取结果
+            max_retries = 40  # 最多等待400秒
+            retry_count = 0
+            while task_status in ['PENDING', 'RUNNING'] and retry_count < max_retries:
+                await asyncio.sleep(10)
+                video_url, task_status = await self.get_video_status(task_id)
+                logger.info(f'百炼视频生成: {task_id} {task_status} [{retry_count + 1}/{max_retries}]')
+                retry_count += 1
+
+            if task_status == 'SUCCEEDED':
+                return video_url, 'success'
+
+            logger.error(f'百炼视频生成失败: {task_id} {task_status} [{attempt}/{max_attempts}]')
             await asyncio.sleep(5)
-            video_url, task_status = await self.get_video_status(task_id)
-            logger.info(f'百炼视频生成: {task_id} {task_status} [{retry_count + 1}/{max_retries}]')
-            retry_count += 1
-
-        if task_status == 'SUCCEEDED':
-            return video_url, 'success'
-        else:
-            logger.error(f'百炼视频生成超时或失败: {task_id} {task_status}')
-            return None, f'百炼视频生成超时或失败: {task_id} {task_status}'
+            attempt += 1
+        return None, f'百炼视频生成超时或失败: {task_id} {task_status}'
 
     async def generate_and_save(self, profile_id, img_url, subject_type, batch_size=2):
         try:
@@ -231,12 +243,21 @@ class BailianService:
                     video_key = f'profile/vid/{profile_id}/{emotion}.mp4'
                     video_data, content_type = await self.download_file(info['url'], 'video/mp4')
                     if video_data:
+                        # 转换视频尺寸
+                        resized_data = await resize_video_in_memory(video_data)
+                        if not resized_data:
+                            logger.error(f'视频转换失败: {emotion}')
+                            info['url'] = ''
+                            info['hash'] = ''
+                            info['status'] = 'failed'
+                            info['msg'] = '视频转换失败'
+                            continue
                         upload_result = await oss.upload_file_async(
-                            video_key, file_data=video_data, content_type=content_type
+                            video_key, file_data=resized_data, content_type=content_type
                         )
                         if upload_result:
                             info['url'] = f'{settings.OSS_BUCKET_URL}/{video_key}'
-                            info['hash'] = hashlib.sha256(video_data).hexdigest()
+                            info['hash'] = hashlib.sha256(resized_data).hexdigest()
                         else:
                             logger.error(f'视频上传失败: {emotion}')
                             info['url'] = ''
