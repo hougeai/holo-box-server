@@ -7,6 +7,7 @@ from schemas.device import (
     DeviceCreate,
     DeviceUpdate,
     DeviceBind,
+    DevicePush,
 )
 from models.agent import Agent, AgentTemplate
 
@@ -188,3 +189,12 @@ async def bind_device(obj_in: DeviceBind):
         obj = await device_controller.create(obj_in)
     data = await obj.to_dict()
     return Success(data=data, msg='绑定成功')
+
+
+@router.post('/push', summary='给设备推送消息')
+async def push_message(obj_in: DevicePush):
+    res = await xz_service.push_message(serial_number=obj_in.serial_number, message=obj_in.message)
+    if not res or not res['success']:
+        msg = res.get('message', '') if res else '未知'
+        return Fail(code=400, msg=f'推送消息给设备失败: {msg}')
+    return Success(msg='推送成功', data=res.get('data', {}))

@@ -64,10 +64,19 @@ def test_product():
         f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
 
 
+def test_message():
+    data = {'serial_number': 'HSKJ_HOLOPOD001_01B841DA5CA31832', 'message': {'name': 'self.reboot', 'arguments': {}}}
+    response = client.post('/api/messaging/push', json=data, headers=headers)
+    print(response.status_code)
+    with open('0message.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
+
+
 if __name__ == '__main__':
     # get_token()
-    test_agent()
+    # test_agent()
     # test_device()
     # test_agentTemplate()
     # test_mcp()
     # test_product()
+    test_message()

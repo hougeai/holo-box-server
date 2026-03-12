@@ -30,3 +30,8 @@ class DeviceBind(BaseModel):
     user_id: str = Field(description='用户ID')
     agent_id: Optional[str] = Field(default=None, description='智能体ID')
     code: str = Field(description='验证码')
+
+
+class DevicePush(BaseModel):
+    serial_number: str = Field(description='设备序列号')
+    message: dict = Field(description='推送消息')

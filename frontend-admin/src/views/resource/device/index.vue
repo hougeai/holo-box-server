@@ -1,6 +1,15 @@
 <script setup>
 import { h, onMounted, ref, resolveDirective, withDirectives } from 'vue'
-import { NButton, NInput, NSwitch, NTag, NModal, NForm, NFormItem, NPopconfirm } from 'naive-ui'
+import {
+  NButton,
+  NInput,
+  NSwitch,
+  NModal,
+  NForm,
+  NFormItem,
+  NPopconfirm,
+  NDynamicInput,
+} from 'naive-ui'
 
 import { formatDateTime } from '@/utils'
 import { useUserStore } from '@/store'
@@ -22,6 +31,18 @@ const bindForm = ref({
   code: '',
 })
 const bindLoading = ref(false)
+
+// 推送消息对话框
+const pushModalVisible = ref(false)
+const pushFormRef = ref(null)
+const pushForm = ref({
+  serial_number: '',
+  message: {
+    name: '',
+    arguments: {},
+  },
+})
+const pushLoading = ref(false)
 
 onMounted(() => {
   $table.value?.handleSearch()
@@ -125,24 +146,6 @@ const columns = [
     },
   },
   {
-    title: '是否解绑过',
-    key: 'is_unbound',
-    width: 30,
-    align: 'center',
-    render(row) {
-      return h(
-        NTag,
-        {
-          size: 'small',
-          type: row.is_unbound ? 'error' : 'success',
-        },
-        {
-          default: () => (row.is_unbound ? '是' : '否'),
-        },
-      )
-    },
-  },
-  {
     title: '操作',
     key: 'actions',
     width: 60,
@@ -198,6 +201,17 @@ const columns = [
                 [[vPermission, 'delete/api/v1/device/delete']],
               ),
             default: () => h('div', {}, '确定删除吗?'),
+          },
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'info',
+            onClick: () => handlePushMessage(row),
+          },
+          {
+            default: () => '推送',
           },
         ),
       ]
@@ -270,6 +284,36 @@ async function handleDelete({ id }) {
     console.log(err)
   }
 }
+
+// 打开推送消息对话框
+function handlePushMessage(row) {
+  pushForm.value = {
+    serial_number: row.serial_number,
+    message: {
+      name: '',
+      arguments: {},
+    },
+  }
+  pushModalVisible.value = true
+}
+
+// 推送消息
+async function handlePush() {
+  pushFormRef.value?.validate(async (errors) => {
+    if (errors) return
+    pushLoading.value = true
+    try {
+      await api.pushDeviceMessage(pushForm.value)
+      $message?.success('推送成功')
+      pushModalVisible.value = false
+      $table.value?.handleSearch()
+    } catch (err) {
+      console.log(err)
+    } finally {
+      pushLoading.value = false
+    }
+  })
+}
 </script>
 
 <template>
@@ -334,6 +378,41 @@ async function handleDelete({ id }) {
         <div class="flex justify-end gap-4">
           <NButton @click="bindModalVisible = false">取消</NButton>
           <NButton type="primary" :loading="bindLoading" @click="handleBindDevice">确定</NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- 推送消息对话框 -->
+    <NModal
+      v-model:show="pushModalVisible"
+      preset="card"
+      title="推送消息"
+      :style="{ width: '600px' }"
+    >
+      <NForm ref="pushFormRef" :model="pushForm" label-placement="left" label-width="100">
+        <NFormItem label="设备序列号" path="serial_number">
+          <NInput v-model:value="pushForm.serial_number" disabled />
+        </NFormItem>
+        <NFormItem
+          label="指令名称"
+          path="message.name"
+          :rule="{ required: true, message: '请输入指令名称' }"
+        >
+          <NInput v-model:value="pushForm.message.name" placeholder="请输入指令名称" />
+        </NFormItem>
+        <NFormItem label="指令参数" path="message.arguments">
+          <NDynamicInput
+            v-model:value="pushForm.message.arguments"
+            preset="pair"
+            key-placeholder="参数名"
+            value-placeholder="参数值"
+          />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <div class="flex justify-end gap-4">
+          <NButton @click="pushModalVisible = false">取消</NButton>
+          <NButton type="primary" :loading="pushLoading" @click="handlePush">发送</NButton>
         </div>
       </template>
     </NModal>

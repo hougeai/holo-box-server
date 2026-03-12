@@ -298,5 +298,11 @@ class XZService:
         url = f'{self.base_url}/api/developers/mcp-endpoints/{endpoint_id}'
         return await self._make_request('DELETE', url)
 
+    async def push_message(self, serial_number, message={}):
+        """推送消息"""
+        url = f'{self.base_url}/api/messaging/push'
+        data = {'serial_number': serial_number, 'message': message}
+        return await self._make_request('POST', url, json=data)
+
 
 xz_service = XZService()
