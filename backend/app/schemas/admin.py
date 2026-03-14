@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, Field, EmailStr
 from models.enums import MethodType, MenuType
 
@@ -123,41 +123,3 @@ class MenuUpdate(MenuCreate):
     name: Optional[str] = None
     path: Optional[str] = None
     menu_type: Optional[MenuType] = None
-
-
-class FeedBackCreate(BaseModel):
-    user_id: str = Field(..., description='用户ID')
-    feed_type: str = Field(..., description='反馈类型', example='BUG')
-    summary: str = Field(..., description='反馈内容', example='用户列表页面显示异常')
-
-
-class MarkRequest(BaseModel):
-    ids: List[int]
-
-
-# 用户订阅
-class UserOrderCreate(BaseModel):
-    user_id: str = Field(..., description='用户ID')
-    role_id: int = Field(..., description='角色ID')
-    amount: Optional[float] = Field(None, description='金额')
-
-
-class UserOrderUpdate(UserOrderCreate):
-    id: int = Field(..., description='订单ID')
-    user_id: Optional[str] = Field(None, description='用户ID')
-    role_id: Optional[int] = Field(None, description='角色ID')
-
-
-# 充值相关
-class RechargeCreate(BaseModel):
-    user_id: str = Field(..., description='用户ID')
-    amount: float = Field(..., description='充值金额，Decimal(10,2)')
-    order_id: Optional[str] = Field(None, description='充值订单ID（第三方订单号）')
-    payment_method: Optional[str] = Field(None, description='支付方式')
-    is_paid: Optional[bool] = Field(False, description='是否已支付成功')
-
-
-class RechargeUpdate(RechargeCreate):
-    id: Optional[int] = Field(None, description='充值ID')
-    user_id: Optional[str] = Field(None, description='用户ID')
-    amount: Optional[float] = Field(None, description='充值金额，Decimal(10,2)')

@@ -11,8 +11,6 @@ from models.admin import (
     Menu,
     RoleMenu,
     RoleApi,
-    UserOrder,
-    Recharge,
 )
 from schemas.login import CredentialsSchema
 from schemas.admin import (
@@ -24,10 +22,6 @@ from schemas.admin import (
     ApiUpdate,
     MenuCreate,
     MenuUpdate,
-    UserOrderCreate,
-    UserOrderUpdate,
-    RechargeCreate,
-    RechargeUpdate,
 )
 from .crud import CRUDBase
 
@@ -174,21 +168,3 @@ class MenuController(CRUDBase[Menu, MenuCreate, MenuUpdate]):
 
 
 menu_controller = MenuController()
-
-
-# user order controller
-class UserOrderController(CRUDBase[UserOrder, UserOrderCreate, UserOrderUpdate]):
-    def __init__(self):
-        super().__init__(model=UserOrder)
-
-
-user_order_controller = UserOrderController()
-
-
-# recharge controller
-class RechargeController(CRUDBase[Recharge, RechargeCreate, RechargeUpdate]):
-    def __init__(self):
-        super().__init__(model=Recharge)
-
-
-recharge_controller = RechargeController()

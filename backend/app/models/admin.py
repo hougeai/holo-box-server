@@ -129,32 +129,3 @@ class AuditLog(BaseModel, TimestampMixin):
     latency = fields.IntField(default=0, description='响应时间(单位ms)', index=True)
     args = fields.JSONField(null=True, description='请求参数')
     body = fields.JSONField(null=True, description='返回数据')
-
-
-# 充值表
-class Recharge(BaseModel, TimestampMixin):
-    user_id = fields.CharField(max_length=12, index=True, description='用户ID')
-    amount = fields.DecimalField(max_digits=10, decimal_places=2, index=True, description='充值金额')
-    order_id = fields.CharField(max_length=100, index=True, description='充值订单ID')
-    payment_method = fields.CharField(max_length=20, index=True, description='支付方式')
-    is_paid = fields.BooleanField(
-        default=False, index=True, description='是否已支付'
-    )  # 只有支付成功才会写入BalanceFlow
-
-    class Meta:
-        indexes = [
-            ('user_id', 'is_paid'),
-        ]
-
-
-# 订单表
-class UserOrder(BaseModel, TimestampMixin):
-    user_id = fields.CharField(max_length=12, index=True, description='用户ID')
-    role_id = fields.IntField(index=True, description='角色ID')
-    amount = fields.DecimalField(max_digits=10, decimal_places=2, null=True, description='金额')
-
-    class Meta:
-        # 联合索引，优化查询性能
-        indexes = [
-            ('user_id', 'role_id'),
-        ]
