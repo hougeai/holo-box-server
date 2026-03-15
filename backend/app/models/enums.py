@@ -36,3 +36,16 @@ class McpProtocol(str, Enum):
 class SubjectType(str, Enum):
     HUMAN = 'human'
     ANIMAL = 'animal'
+
+
+class GiftType(str, Enum):
+    REGISTER = 'register'  # 注册赠送
+    ACTIVITY = 'activity'  # 活动赠送
+    COMPENSATION = 'compensation'  # 补偿赠送
+
+
+class PointsFlowType(str, Enum):
+    RECHARGE = 'recharge'  # 充值
+    GIFT = 'gift'  # 赠送
+    ORDER = 'order'  # 订单消费
+    EXPIRE = 'expire'  # 过期扣减

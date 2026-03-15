@@ -6,7 +6,7 @@ from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from tortoise.expressions import Q
 from api import api_router, ota_router
-from models.admin import Api, Menu, Role, RoleMenu, RoleApi
+from models.admin import Api, Menu, Role, RoleMenu, RoleApi, SystemConfig
 from models.agent import AgentTemplate, Agent, LLM, Voice, McpTool
 from models.device import Device
 from models.resource import Ota
@@ -584,6 +584,18 @@ async def init_mcps():
             logger.error(f'MCP {mcp.name} connect failed: {msg}')
 
 
+async def init_system_config():
+    """初始化系统配置"""
+    configs = [
+        {'key': 'register_gift', 'value': '3000', 'note': '注册赠送积分'},
+    ]
+    for config_data in configs:
+        exists = await SystemConfig.exists(key=config_data['key'])
+        if not exists:
+            await SystemConfig.create(**config_data)
+            logger.info(f"系统配置初始化: {config_data['key']} = {config_data['value']}")
+
+
 async def init_data(app: FastAPI):
     await init_db()
     await init_menus()
@@ -597,6 +609,7 @@ async def init_data(app: FastAPI):
     await init_llm()
     await init_voices()
     await init_mcps()
+    await init_system_config()
 
 
 async def check_mcp_status_periodically(check_interval=60):

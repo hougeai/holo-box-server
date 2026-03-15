@@ -123,3 +123,17 @@ class MenuUpdate(MenuCreate):
     name: Optional[str] = None
     path: Optional[str] = None
     menu_type: Optional[MenuType] = None
+
+
+# 系统配置相关
+class SystemConfigCreate(BaseModel):
+    key: str = Field(description='配置键', example='register_gift')
+    value: str = Field(description='配置值', example='100')
+    note: Optional[str] = Field(default=None, description='备注', example='注册赠送积分')
+
+
+class SystemConfigUpdate(BaseModel):
+    id: int = Field(description='配置ID')
+    key: Optional[str] = None
+    value: Optional[str] = None
+    note: Optional[str] = None

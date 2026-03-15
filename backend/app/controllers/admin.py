@@ -4,6 +4,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.routing import APIRoute
 
 from core.security import get_password_hash, verify_password
+from core.log import logger
 from models.admin import (
     User,
     Role,
@@ -11,7 +12,9 @@ from models.admin import (
     Menu,
     RoleMenu,
     RoleApi,
+    SystemConfig,
 )
+from models.enums import GiftType
 from schemas.login import CredentialsSchema
 from schemas.admin import (
     UserCreate,
@@ -23,6 +26,7 @@ from schemas.admin import (
     MenuCreate,
     MenuUpdate,
 )
+from controllers.finance import gift_controller
 from .crud import CRUDBase
 
 
@@ -53,6 +57,16 @@ class UserController(CRUDBase[User, UserCreate, UserUpdate]):
         if obj_in.password:
             obj_in.password = get_password_hash(password=obj_in.password)
         obj = await self.create(obj_in)
+        # 查询注册赠送积分配置并赠送
+        config = await SystemConfig.filter(key='register_gift').first()
+        if config:
+            try:
+                points = int(config.value)
+                await gift_controller.create_gift(
+                    user_id=obj.user_id, points=points, gift_type=GiftType.REGISTER, note='注册赠送永久有效'
+                )
+            except Exception as e:
+                logger.error(f'注册赠送积分失败 {obj.user_id}: {e}')
         return obj
 
     async def update_last_login(self, user_id: str) -> None:

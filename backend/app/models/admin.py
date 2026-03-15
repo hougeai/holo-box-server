@@ -129,3 +129,12 @@ class AuditLog(BaseModel, TimestampMixin):
     latency = fields.IntField(default=0, description='响应时间(单位ms)', index=True)
     args = fields.JSONField(null=True, description='请求参数')
     body = fields.JSONField(null=True, description='返回数据')
+
+
+class SystemConfig(BaseModel, TimestampMixin):
+    key = fields.CharField(max_length=100, unique=True, index=True, description='配置键')
+    value = fields.TextField(description='配置值')
+    note = fields.CharField(max_length=500, null=True, description='备注')
+
+    class Meta:
+        table = 'system_config'

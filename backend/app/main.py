@@ -23,6 +23,7 @@ from core.init_app import (
 )
 from core.config import settings
 from core.log import logger
+from core.background import setup_scheduler
 
 
 class InterceptHandler(logging.Handler):
@@ -41,7 +42,7 @@ for name in ('uvicorn', 'uvicorn.access'):
 async def lifespan(app: FastAPI):
     # 1. 应用启动前的操作
     await init_data(app)
-
+    scheduler = setup_scheduler()  # 设置定时任务调度器
     # 启动 MCP 状态检查后台任务
     check_task = asyncio.create_task(check_mcp_status_periodically())
 
@@ -50,6 +51,8 @@ async def lifespan(app: FastAPI):
 
     # 3. 应用关闭时的操作
     # 取消后台任务
+    if scheduler:
+        scheduler.shutdown()
     check_task.cancel()
     try:
         await check_task

@@ -1,0 +1,51 @@
+from fastapi import APIRouter, Request, HTTPException, Response
+from models.finance import Recharge
+from controllers.finance import recharge_controller
+from core.log import logger
+from core.pay import payment_service
+
+
+router = APIRouter(tags=['回调模块'])
+
+
+@router.post('/alipay/notify', summary='支付宝异步通知回调')
+async def alipay_notify(request: Request):
+    # 获取请求体内容
+    form_data = await request.form()
+    # 将表单数据转换为字典
+    data = dict(form_data)
+    logger.info(f'收到支付宝异步通知: {data}')
+
+    # 验证签名
+    if not payment_service.alipay_api.verify_notification(data):
+        logger.error('支付宝异步通知签名验证失败')
+        raise HTTPException(status_code=400, detail='Invalid signature')
+
+    # 获取订单号和交易状态
+    out_trade_no = data.get('out_trade_no', '')
+    trade_status = data.get('trade_status', '')
+
+    if not out_trade_no:
+        logger.error('支付宝异步通知缺少订单号')
+        raise HTTPException(status_code=400, detail='Missing order number')
+
+    # 处理不同的交易状态
+    if trade_status == 'TRADE_SUCCESS' or trade_status == 'TRADE_FINISHED':
+        # 支付成功，更新订单状态
+        try:
+            obj = await Recharge.get(order_id=out_trade_no)
+            if not obj:
+                raise HTTPException(status_code=404, detail='Order not found')
+            if not obj.is_paid:
+                await recharge_controller.confirm_payment(id=obj.id)
+            else:
+                logger.info(f'订单 {out_trade_no} 已经处理过，无需重复处理')
+        except Exception as e:
+            logger.error(f'处理订单 {out_trade_no} 时出错: {str(e)}')
+            raise HTTPException(status_code=500, detail='Internal server error')
+    elif trade_status == 'TRADE_CLOSED':
+        logger.info(f'订单 {out_trade_no} 已关闭')
+    else:
+        logger.warning(f'未知的交易状态: {trade_status}')
+    # 返回成功响应给支付宝，必须是纯文本格式的"success"
+    return Response(content='success', media_type='text/plain')

@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+from datetime import datetime
 
 load_dotenv()  # 加载环境变量
 
@@ -60,6 +61,16 @@ class Settings(BaseSettings):
     # 小程序相关配置
     MP_APPID: str = os.getenv('MP_APPID', '')
     MP_SECRET: str = os.getenv('MP_SECRET', '')
+    # 支付宝支付
+    ALIPAY_SERVER_URL: str = os.getenv('ALIPAY_SERVER_URL', '')
+    ALIPAY_APP_ID: str = os.getenv('ALIPAY_APP_ID', '')
+    ALIPAY_APP_PRIVATE_KEY: str = os.getenv('ALIPAY_APP_PRIVATE_KEY', '')
+    ALIPAY_PUBLIC_KEY: str = os.getenv('ALIPAY_PUBLIC_KEY', '')
+    ALIPAY_NOTIFY_URL: str = os.getenv('ALIPAY_NOTIFY_URL', '')
+    # 永久有效时间
+    PERMANENT_EXPIRED_AT: datetime = datetime(2099, 12, 31)
+    # 1元兑换积分数量
+    POINTS_PRICE_RATE: int = os.getenv('POINTS_PRICE_RATE', 100)
     # 数据库配置
     TORTOISE_ORM: dict = {
         'connections': {

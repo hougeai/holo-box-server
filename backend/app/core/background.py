@@ -1,6 +1,11 @@
 import contextvars
 from starlette.background import BackgroundTasks
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from tzlocal import get_localzone
+from datetime import datetime, timedelta
+from controllers import pointsgrant_controller
+from .log import logger
 
 # 上下文变量：当前请求用户ID，每个请求都在独立的异步上下文中运行，contextvars 会为每个协程维护独立的上下文状态
 CTX_USER_ID: contextvars.ContextVar[str] = contextvars.ContextVar('user_id', default='0')
@@ -34,3 +39,26 @@ class BgTasks:
         bg_tasks = await cls.get_bg_tasks_obj()
         if bg_tasks.tasks:
             await bg_tasks()
+
+
+def setup_scheduler():
+    """
+    设置定时任务调度器
+    """
+    scheduler = AsyncIOScheduler()
+    tz = get_localzone()
+    logger.info(f'定时任务执行时区：{tz}')
+    # 每天凌晨3点执行检查过期积分任务
+    scheduler.add_job(
+        pointsgrant_controller.check_expired_points, 'cron', hour=3, minute=0, timezone=tz, id='check_expired_points'
+    )
+    # 程序启动后运行一次检查过期积分任务
+    scheduler.add_job(
+        pointsgrant_controller.check_expired_points,
+        'date',
+        run_date=datetime.now(tz) + timedelta(seconds=20),
+        timezone=tz,
+        id='test',
+    )
+    scheduler.start()
+    return scheduler
