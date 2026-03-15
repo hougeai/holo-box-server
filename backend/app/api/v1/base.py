@@ -10,8 +10,9 @@ from core.security import create_token, get_password_hash, verify_password
 from core.verifycode import RedisManager
 from core.log import logger
 from core.wx_api import wx_service
-from controllers import user_controller, agent_template_controller
+from controllers import user_controller, agent_template_controller, system_config_controller
 from models.admin import Api, Menu, RoleApi, RoleMenu
+from schemas.admin import SystemConfigCreate, SystemConfigUpdate
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.login import CredentialsSchema, JWTPayload, JWTOut, WxLoginRequest, WxPhoneRequest
 from schemas.admin import UserCreate, UpdatePassword
@@ -115,6 +116,8 @@ async def get_userinfo():
     if not user_obj:
         return Fail(msg='用户不存在')
     data = await user_obj.to_dict(exclude_fields=['password', 'id'])
+    # 添加 is_superuser 字段
+    data['is_superuser'] = user_obj.is_superuser
     return Success(data=data)
 
 
@@ -239,3 +242,38 @@ async def list_agent_template(
     total, objs = await agent_template_controller.list(page=page, page_size=page_size, search=q, order=['order', '-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+# system config
+@router.get('/config/list', summary='查看系统配置列表', dependencies=[DependAuth])
+async def list_config(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(10, description='每页数量'),
+    key: str = Query('', description='配置键，用于搜索'),
+):
+    q = Q()
+    if key:
+        q &= Q(key__contains=key)
+    total, objs = await system_config_controller.list(page=page, page_size=page_size, search=q, order=['id'])
+    data = [await obj.to_dict() for obj in objs]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+@router.post('/config/create', summary='创建配置', dependencies=[DependAuth])
+async def create_config(config_in: SystemConfigCreate):
+    if await system_config_controller.get_by_key(key=config_in.key):
+        return Fail(code=400, msg='配置键已存在')
+    await system_config_controller.create(obj_in=config_in)
+    return Success(msg='Created Successfully')
+
+
+@router.post('/config/update', summary='更新配置', dependencies=[DependAuth])
+async def update_config(config_in: SystemConfigUpdate):
+    await system_config_controller.update(id=config_in.id, obj_in=config_in)
+    return Success(msg='Updated Successfully')
+
+
+@router.delete('/config/delete', summary='删除配置', dependencies=[DependAuth])
+async def delete_config(id: int = Query(..., description='配置ID')):
+    await system_config_controller.remove(id=id)
+    return Success(msg='Deleted Successfully')

@@ -26,6 +26,11 @@ export default {
   getRoleAuthorized: (params = {}) => request.get('/role/authorized', { params }),
   // system-auditlog
   getAuditLogList: (params = {}) => request.get('/auditlog/list', { params }),
+  // system-config
+  getConfigList: (params = {}) => request.get('/base/config/list', { params }),
+  createConfig: (data = {}) => request.post('/base/config/create', data),
+  updateConfig: (data = {}) => request.post('/base/config/update', data),
+  deleteConfig: (params = {}) => request.delete('/base/config/delete', { params }),
   // resource-agent
   getAgentList: (params = {}) => request.get('/agent/list', { params }),
   createAgent: (data = {}) => request.post('/agent/create', data),
@@ -80,7 +85,6 @@ export default {
   updateOta: (data = {}) => request.post('/resource/ota/update', data),
   deleteOta: (params = {}) => request.delete('/resource/ota/delete', { params }),
   uploadOtaFile: (data = {}) => request.post('/resource/ota/file', data, { timeout: 120000 }),
-
   // user-order
   getOrderList: (params = {}) => request.get('/order/list', { params }),
   createOrder: (data = {}) => request.post('/order/create', data),

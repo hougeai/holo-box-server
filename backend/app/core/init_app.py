@@ -147,6 +147,17 @@ async def init_menus():
             component='/system/auditlog',
             keepalive=False,
         ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='配置管理',
+            path='config',
+            order=4,
+            parent_id=parent_menu.id,
+            icon='carbon:settings',
+            hidden=False,
+            component='/system/config',
+            keepalive=False,
+        ),
     ]
     await Menu.bulk_create(children_menu)
 
@@ -280,9 +291,20 @@ async def init_menus():
     children_menu = [
         Menu(
             menu_type=MenuType.MENU,
+            name='商品管理',
+            path='product',
+            order=1,
+            parent_id=parent_menu.id,
+            icon='material-symbols:storefront',
+            hidden=False,
+            component='/user/product',
+            keepalive=False,
+        ),
+        Menu(
+            menu_type=MenuType.MENU,
             name='订单管理',
             path='order',
-            order=1,
+            order=2,
             parent_id=parent_menu.id,
             icon='material-symbols:assignment-outline',
             hidden=False,
@@ -293,11 +315,44 @@ async def init_menus():
             menu_type=MenuType.MENU,
             name='充值管理',
             path='recharge',
-            order=2,
+            order=3,
             parent_id=parent_menu.id,
             icon='material-symbols:money-bag',
             hidden=False,
             component='/user/recharge',
+            keepalive=False,
+        ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='赠送管理',
+            path='gift',
+            order=4,
+            parent_id=parent_menu.id,
+            icon='material-symbols:featured-seasonal-and-gifts',
+            hidden=False,
+            component='/user/gift',
+            keepalive=False,
+        ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='积分授予',
+            path='pointsGrant',
+            order=5,
+            parent_id=parent_menu.id,
+            icon='mdi:calendar-star-four-points',
+            hidden=False,
+            component='/user/pointsGrant',
+            keepalive=False,
+        ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='积分流水',
+            path='pointsFlow',
+            order=6,
+            parent_id=parent_menu.id,
+            icon='material-symbols:account-balance',
+            hidden=False,
+            component='/user/pointsFlow',
             keepalive=False,
         ),
     ]
@@ -587,7 +642,7 @@ async def init_mcps():
 async def init_system_config():
     """初始化系统配置"""
     configs = [
-        {'key': 'register_gift', 'value': '3000', 'note': '注册赠送积分'},
+        {'key': 'register_gift', 'value': '3000', 'note': '注册赠送积分额度'},
     ]
     for config_data in configs:
         exists = await SystemConfig.exists(key=config_data['key'])

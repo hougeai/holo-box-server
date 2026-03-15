@@ -25,6 +25,8 @@ from schemas.admin import (
     ApiUpdate,
     MenuCreate,
     MenuUpdate,
+    SystemConfigCreate,
+    SystemConfigUpdate,
 )
 from controllers.finance import gift_controller
 from .crud import CRUDBase
@@ -58,10 +60,10 @@ class UserController(CRUDBase[User, UserCreate, UserUpdate]):
             obj_in.password = get_password_hash(password=obj_in.password)
         obj = await self.create(obj_in)
         # 查询注册赠送积分配置并赠送
-        config = await SystemConfig.filter(key='register_gift').first()
+        config = await system_config_controller.get_by_key('register_gift')
         if config:
             try:
-                points = int(config.value)
+                points = int(config.value.strip())
                 await gift_controller.create_gift(
                     user_id=obj.user_id, points=points, gift_type=GiftType.REGISTER, note='注册赠送永久有效'
                 )
@@ -182,3 +184,15 @@ class MenuController(CRUDBase[Menu, MenuCreate, MenuUpdate]):
 
 
 menu_controller = MenuController()
+
+
+# system config controller
+class SystemConfigController(CRUDBase[SystemConfig, SystemConfigCreate, SystemConfigUpdate]):
+    def __init__(self):
+        super().__init__(model=SystemConfig)
+
+    async def get_by_key(self, key: str) -> Optional[SystemConfig]:
+        return await self.model.filter(key=key).first()
+
+
+system_config_controller = SystemConfigController()

@@ -31,6 +31,9 @@ export const useUserStore = defineStore('user', {
     isActive() {
       return this.userInfo?.is_active
     },
+    isSuperUser() {
+      return this.userInfo?.is_superuser
+    },
   },
   actions: {
     async getUserInfo() {
@@ -41,8 +44,8 @@ export const useUserStore = defineStore('user', {
           return
         }
         // console.log(res.data)
-        const { user_id, user_name, email, avatar, role_id, is_active } = res.data
-        this.userInfo = { user_id, user_name, email, avatar, role_id, is_active }
+        const { user_id, user_name, email, avatar, role_id, is_active, is_superuser } = res.data
+        this.userInfo = { user_id, user_name, email, avatar, role_id, is_active, is_superuser }
         return res.data
       } catch (error) {
         return error
