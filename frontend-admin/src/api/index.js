@@ -85,11 +85,13 @@ export default {
   updateOta: (data = {}) => request.post('/resource/ota/update', data),
   deleteOta: (params = {}) => request.delete('/resource/ota/delete', { params }),
   uploadOtaFile: (data = {}) => request.post('/resource/ota/file', data, { timeout: 120000 }),
+  // user-product
+  getProductList: (params = {}) => request.get('/finance/products', { params }),
+  createProduct: (data = {}) => request.post('/finance/products', data),
+  updateProduct: (data = {}) => request.put('/finance/products', data),
+  deleteProduct: (id) => request.delete(`/finance/products/${id}`),
   // user-order
-  getOrderList: (params = {}) => request.get('/order/list', { params }),
-  createOrder: (data = {}) => request.post('/order/create', data),
-  updateOrder: (data = {}) => request.post('/order/update', data),
-  deleteOrder: (params = {}) => request.delete('/order/delete', { params }),
+  getOrderList: (params = {}) => request.get('/finance/orders', { params }),
   // user-recharge
-  getRechargeList: (params = {}) => request.get('/finance/recharge/list', { params }),
+  getRechargeList: (params = {}) => request.get('/finance/recharges', { params }),
 }

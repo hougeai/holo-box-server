@@ -11,14 +11,14 @@ class ProductCreate(BaseModel):
     name: str = Field(description='商品名称')
     points_price: int = Field(description='积分价格')
     description: Optional[str] = Field(default=None, description='商品描述')
-    status: bool = Field(default=True, description='是否上架')
+    is_public: bool = Field(default=True, description='是否上架')
 
 
 class ProductUpdate(ProductCreate):
     id: int = Field(description='ID')
     name: Optional[str] = Field(default=None, description='商品名称')
     points_price: Optional[int] = Field(default=None, description='积分价格')
-    status: Optional[bool] = Field(default=None, description='是否上架')
+    is_public: Optional[bool] = Field(default=None, description='是否上架')
 
 
 # ========== ProductOrder ==========

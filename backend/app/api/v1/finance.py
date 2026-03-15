@@ -31,22 +31,14 @@ router = APIRouter()
 async def list_product(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
-    status: bool = Query(None, description='是否上架'),
+    is_public: bool = Query(None, description='是否上架'),
 ):
     q = Q()
-    if status is not None:
-        q &= Q(status=status)
+    if is_public is not None:
+        q &= Q(is_public=is_public)
     total, objs = await product_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
-
-
-@router.get('/products/{product_id}', summary='商品详情')
-async def get_product(product_id: int):
-    obj = await product_controller.get(id=product_id)
-    if not obj:
-        return Fail(msg='商品不存在')
-    return Success(data=await obj.to_dict())
 
 
 @router.post('/products', summary='创建商品')
@@ -57,13 +49,13 @@ async def create_product(obj_in: ProductCreate):
 
 @router.put('/products', summary='更新商品')
 async def update_product(obj_in: ProductUpdate):
-    obj = await product_controller.update(obj_in)
+    obj = await product_controller.update(obj_in.id, obj_in)
     return Success(data=await obj.to_dict())
 
 
-@router.delete('/products/{product_id}', summary='删除商品')
-async def delete_product(product_id: int):
-    await product_controller.delete(id=product_id)
+@router.delete('/products/{id}', summary='删除商品')
+async def delete_product(id: int):
+    await product_controller.delete(id=id)
     return Success(msg='删除成功')
 
 
@@ -85,14 +77,6 @@ async def list_order(
     total, objs = await productorder_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
-
-
-@router.get('/orders/{order_id}', summary='订单详情')
-async def get_order(order_id: int):
-    obj = await productorder_controller.get(id=order_id)
-    if not obj:
-        return Fail(msg='订单不存在')
-    return Success(data=await obj.to_dict())
 
 
 @router.post('/orders', summary='创建订单')
