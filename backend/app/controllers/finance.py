@@ -44,11 +44,11 @@ class ProductOrderController(CRUDBase[ProductOrder, ProductOrderCreate, ProductO
         """创建订单并扣减积分"""
         # 获取商品
         product = await Product.get(id=product_id)
-        if not product or not product.status:
+        if not product or not product.is_public:
             raise ValueError('商品不存在或已下架')
 
         # 扣除积分并创建订单
-        async with in_transaction() as conn:
+        async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
             # 扣减积分（包含余额检查）
             consumed_grant_ids = await self._consume_points(user_id, product.points_price, conn)
 
@@ -125,7 +125,7 @@ class RechargeController(CRUDBase[Recharge, RechargeCreate, RechargeUpdate]):
             raise ValueError('充值记录不存在')
         if recharge.is_paid:  # 防止重复添加
             return recharge
-        async with in_transaction() as conn:
+        async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
             recharge.is_paid = True
             await recharge.save(using_db=conn)
             await self._add_points(recharge.user_id, recharge.points, PointsFlowType.RECHARGE, conn)
@@ -165,7 +165,7 @@ class GiftController(CRUDBase[Gift, GiftCreate, GiftUpdate]):
         if expired_at is None:
             expired_at = settings.PERMANENT_EXPIRED_AT
 
-        async with in_transaction() as conn:
+        async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
             gift = await Gift.create(
                 user_id=user_id,
                 points=points,
@@ -205,7 +205,7 @@ class PointsGrantController(CRUDBase[PointsGrant, PointsGrantCreate, PointsGrant
         """检查并处理过期积分"""
         now = datetime.now()
         # 直接在事务内查询并加锁处理
-        async with in_transaction() as conn:
+        async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
             expired_grants = (
                 await PointsGrant.filter(expired_at__lte=now, amount__gt=0).select_for_update().using_db(conn).all()
             )

@@ -92,6 +92,7 @@ export default {
   deleteProduct: (id) => request.delete(`/finance/products/${id}`),
   // user-order
   getOrderList: (params = {}) => request.get('/finance/orders', { params }),
+  createOrder: (data = {}) => request.post('/finance/orders', data),
   // user-recharge
   getRechargeList: (params = {}) => request.get('/finance/recharges', { params }),
 }
