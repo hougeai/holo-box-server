@@ -220,7 +220,7 @@ async function handleUpdateDisable(row) {
 }
 
 const validateAddUser = {
-  username: [
+  user_name: [
     {
       required: true,
       message: '请输入名称',
@@ -375,7 +375,7 @@ const validateAddUser = {
         :rules="validateAddUser"
       >
         <NFormItem label="用户名称" path="user_name">
-          <NInput v-model:value="modalForm.username" clearable placeholder="请输入用户名称" />
+          <NInput v-model:value="modalForm.user_name" clearable placeholder="请输入用户名称" />
         </NFormItem>
         <NFormItem label="邮箱" path="email">
           <NInput v-model:value="modalForm.email" clearable placeholder="请输入邮箱" />

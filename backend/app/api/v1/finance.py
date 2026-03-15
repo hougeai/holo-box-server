@@ -174,7 +174,7 @@ async def list_gift(
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
 
-@router.post('/gifts', summary='赠送积分')
+@router.post('/gifts', summary='新建赠送积分')
 async def create_gift(obj_in: GiftCreate):
     gift = await gift_controller.create_gift(
         obj_in.user_id, obj_in.points, obj_in.gift_type.value, obj_in.note, obj_in.expired_at
