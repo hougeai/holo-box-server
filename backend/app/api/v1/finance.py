@@ -19,6 +19,7 @@ from schemas.finance import (
     ProductOrderCreate,
     RechargeCreate,
     GiftCreate,
+    GiftUpdate,
 )
 
 router = APIRouter()
@@ -180,6 +181,12 @@ async def create_gift(obj_in: GiftCreate):
         obj_in.user_id, obj_in.points, obj_in.gift_type.value, obj_in.note, obj_in.expired_at
     )
     return Success(data=await gift.to_dict())
+
+
+@router.put('/gifts', summary='更新赠送积分')
+async def update_gift(obj_in: GiftUpdate):
+    obj = await gift_controller.update(obj_in.id, obj_in)
+    return Success(data=await obj.to_dict())
 
 
 # ========== PointsGrant ==========

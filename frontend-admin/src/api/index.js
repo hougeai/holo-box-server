@@ -100,4 +100,9 @@ export default {
   // user-gift
   getGiftList: (params = {}) => request.get('/finance/gifts', { params }),
   createGift: (data = {}) => request.post('/finance/gifts', data),
+  updateGift: (data = {}) => request.put('/finance/gifts', data),
+  // user-pointsGrant
+  getPointsGrantList: (params = {}) => request.get('/finance/points-grant', { params }),
+  // user-pointsFlow
+  getPointsFlowList: (params = {}) => request.get('/finance/points-flow', { params }),
 }

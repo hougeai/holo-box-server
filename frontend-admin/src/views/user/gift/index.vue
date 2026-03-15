@@ -1,8 +1,8 @@
 <script setup>
-import { h, onMounted, ref, resolveDirective } from 'vue'
+import { h, onMounted, ref, resolveDirective, withDirectives } from 'vue'
 import { NButton, NTag, NRadioGroup, NRadio } from 'naive-ui'
 
-import { formatDateTime } from '@/utils'
+import { formatDateTime, renderIcon } from '@/utils'
 import { useCRUD } from '@/composables'
 
 import api from '@/api'
@@ -14,19 +14,28 @@ const $table = ref(null)
 const queryItems = ref({})
 const vPermission = resolveDirective('permission')
 
-const { modalVisible, modalTitle, modalLoading, handleSave, modalForm, modalFormRef, handleAdd } =
-  useCRUD({
-    name: '赠送',
-    initForm: {
-      user_id: '',
-      points: null,
-      gift_type: 'register',
-      note: '',
-      expired_at: null,
-    },
-    doCreate: api.createGift,
-    refresh: () => $table.value?.handleSearch(),
-  })
+const {
+  modalVisible,
+  modalTitle,
+  modalLoading,
+  handleSave,
+  modalForm,
+  modalFormRef,
+  handleAdd,
+  handleEdit,
+} = useCRUD({
+  name: '赠送',
+  initForm: {
+    user_id: '',
+    points: null,
+    gift_type: 'register',
+    note: '',
+    expired_at: null,
+  },
+  doCreate: api.createGift,
+  doUpdate: api.updateGift,
+  refresh: () => $table.value?.handleSearch(),
+})
 
 onMounted(() => {
   $table.value?.handleSearch()
@@ -103,6 +112,45 @@ const columns = [
         {
           default: () => (row.create_at !== null ? formatDateTime(row.create_at) : null),
         },
+      )
+    },
+  },
+  {
+    title: '更新时间',
+    key: 'update_at',
+    align: 'center',
+    width: 70,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return h(
+        NButton,
+        { size: 'small', type: 'text', ghost: true },
+        {
+          default: () => (row.update_at !== null ? formatDateTime(row.update_at) : null),
+        },
+      )
+    },
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 80,
+    align: 'center',
+    fixed: 'right',
+    render(row) {
+      return withDirectives(
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            onClick: () => handleEdit(row),
+          },
+          {
+            icon: renderIcon('material-symbols:edit', { size: 16 }),
+          },
+        ),
+        [[vPermission, 'put/api/v1/finance/gifts']],
       )
     },
   },
@@ -195,12 +243,12 @@ const validateGift = {
         label-align="left"
         :label-width="100"
         :model="modalForm"
-        :rules="validateGift"
+        :rules="modalForm.id ? {} : validateGift"
       >
-        <NFormItem label="用户ID" path="user_id">
+        <NFormItem v-if="!modalForm.id" label="用户ID" path="user_id">
           <NInput v-model:value="modalForm.user_id" clearable placeholder="请输入用户ID" />
         </NFormItem>
-        <NFormItem label="赠送积分" path="points">
+        <NFormItem v-if="!modalForm.id" label="赠送积分" path="points">
           <NInputNumber
             v-model:value="modalForm.points"
             :min="1"
@@ -209,7 +257,7 @@ const validateGift = {
             style="width: 100%"
           />
         </NFormItem>
-        <NFormItem label="赠送类型" path="gift_type">
+        <NFormItem v-if="!modalForm.id" label="赠送类型" path="gift_type">
           <NRadioGroup v-model:value="modalForm.gift_type">
             <NRadio value="register">注册赠送</NRadio>
             <NRadio value="activity">活动赠送</NRadio>
@@ -225,7 +273,7 @@ const validateGift = {
             :autosize="{ minRows: 3, maxRows: 6 }"
           />
         </NFormItem>
-        <NFormItem label="过期时间" path="expired_at">
+        <NFormItem v-if="!modalForm.id" label="过期时间" path="expired_at">
           <NDatePicker
             v-model:value="modalForm.expired_at"
             type="datetime"

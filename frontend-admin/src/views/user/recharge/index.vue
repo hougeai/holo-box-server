@@ -113,6 +113,16 @@ const columns = [
     ellipsis: { tooltip: true },
     render: (row) => h('span', {}, row.create_at !== null ? formatDateTime(row.create_at) : null),
   },
+  {
+    title: '更新时间',
+    key: 'update_at',
+    align: 'center',
+    width: 70,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return h('span', {}, row.update_at !== null ? formatDateTime(row.update_at) : null)
+    },
+  },
 ]
 
 const validateRecharge = {
