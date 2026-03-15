@@ -120,32 +120,33 @@ async def create_recharge(obj_in: RechargeCreate):
     elif payment_method == 'alipay':
         result = await payment_service.create_payment(amount=amount, subject='全息盒子')
         if result.get('success', False):
-            order_id = result['data']['out_trade_no']
+            trade_id = result['data']['out_trade_no']
             obj = await Recharge.create(
                 user_id=user_id,
                 amount=amount,
                 payment_method=payment_method,
                 points=int(amount * settings.POINTS_PRICE_RATE),
-                order_id=order_id,
+                trade_id=trade_id,
                 is_paid=False,
             )
             # 重新从数据库获取确保时区数据正确
             obj = await recharge_controller.get(id=obj.id)
             data = await obj.to_dict(exclude_fields=['id'])
             data['qr_code'] = result['data']['qr_code']
+            data['trade_id'] = trade_id
             return Success(data=data)
         else:
             return Fail(msg=result.get('error', ''))
 
 
-@router.get('/recharges/{order_id}', summary='查询充值订单状态')
-async def get_recharge_status(order_id: str):
-    obj = await Recharge.get(order_id=order_id)
+@router.get('/recharges/{trade_id}', summary='查询充值订单状态')
+async def get_recharge_status(trade_id: str):
+    obj = await Recharge.get(trade_id=trade_id)
     if not obj:
         return Fail(msg='Invalid Order ID')
     # 查询充值状态
     if obj.payment_method == 'alipay' and not obj.is_paid:
-        result = await payment_service.query_payment(out_trade_no=obj.order_id)
+        result = await payment_service.query_payment(out_trade_no=obj.trade_id)
         if result.get('success', False):
             if result['data'].get('trade_status', '') == 'TRADE_SUCCESS':
                 obj = await recharge_controller.confirm_payment(id=obj.id)

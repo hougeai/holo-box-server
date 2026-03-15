@@ -128,15 +128,21 @@ class RechargeController(CRUDBase[Recharge, RechargeCreate, RechargeUpdate]):
         async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
             recharge.is_paid = True
             await recharge.save(using_db=conn)
-            await self._add_points(recharge.user_id, recharge.points, PointsFlowType.RECHARGE, conn)
+            await self._add_points(
+                recharge.user_id, recharge.points, PointsFlowType.RECHARGE, 'recharge', recharge.id, conn
+            )
 
         return recharge
 
-    async def _add_points(self, user_id: str, points: int, flow_type: PointsFlowType, conn):
+    async def _add_points(
+        self, user_id: str, points: int, flow_type: PointsFlowType, source_type: str, source_id: int, conn
+    ):
         """添加积分"""
         grant = await PointsGrant.create(
             user_id=user_id,
             amount=points,
+            source_type=source_type,
+            source_id=source_id,
             expired_at=settings.PERMANENT_EXPIRED_AT,
             using_db=conn,
         )
@@ -178,6 +184,8 @@ class GiftController(CRUDBase[Gift, GiftCreate, GiftUpdate]):
             grant = await PointsGrant.create(
                 user_id=user_id,
                 amount=points,
+                source_type='gift',
+                source_id=gift.id,
                 expired_at=expired_at,
                 using_db=conn,
             )

@@ -35,7 +35,7 @@ class Recharge(BaseModel, TimestampMixin):
     amount = fields.DecimalField(max_digits=10, decimal_places=2, index=True, description='充值金额')
     payment_method = fields.CharField(max_length=20, null=True, description='支付方式')
     points = fields.BigIntField(description='获得积分')
-    order_id = fields.CharField(max_length=100, index=True, description='充值订单ID')
+    trade_id = fields.TextField(null=True, description='交易ID')
     is_paid = fields.BooleanField(default=False, index=True, description='是否已支付')
 
     class Meta:
@@ -61,12 +61,15 @@ class Gift(BaseModel, TimestampMixin):
 class PointsGrant(BaseModel, TimestampMixin):
     user_id = fields.CharField(max_length=12, index=True, description='用户ID')
     amount = fields.BigIntField(description='剩余可用积分')
+    source_type = fields.CharField(max_length=20, index=True, description='来源类型: recharge/gift')
+    source_id = fields.BigIntField(index=True, description='关联的来源记录ID（recharge.id 或 gift.id）')
     expired_at = fields.DatetimeField(default=settings.PERMANENT_EXPIRED_AT, description='过期时间')
 
     class Meta:
         table = 'points_grant'
         indexes = [
             ('user_id', 'expired_at'),
+            ('source_type', 'source_id'),
         ]
 
 

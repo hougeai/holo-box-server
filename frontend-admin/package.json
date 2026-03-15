@@ -33,6 +33,7 @@
     "pinia": "^3.0.2",
     "postcss": "^8.4.21",
     "prettier": "^3.5.3",
+    "qrcode.vue": "^3.8.0",
     "rollup-plugin-visualizer": "^5.14.0",
     "sass": "^1.86.3",
     "unocss": "66.1.0-beta.11",

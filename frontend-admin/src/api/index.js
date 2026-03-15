@@ -95,4 +95,6 @@ export default {
   createOrder: (data = {}) => request.post('/finance/orders', data),
   // user-recharge
   getRechargeList: (params = {}) => request.get('/finance/recharges', { params }),
+  createRecharge: (data = {}) => request.post('/finance/recharges', data),
+  getRechargeStatus: (orderId) => request.get(`/finance/recharges/${orderId}`),
 }
