@@ -45,6 +45,13 @@ const columns = [
     align: 'center',
   },
   {
+    title: '商品标识',
+    key: 'key',
+    width: 60,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
     title: '商品名称',
     key: 'name',
     width: 60,
@@ -162,6 +169,13 @@ const columns = [
 ]
 
 const validateProduct = {
+  key: [
+    {
+      required: true,
+      message: '请输入商品标识',
+      trigger: ['input', 'blur'],
+    },
+  ],
   name: [
     {
       required: true,
@@ -229,6 +243,14 @@ const validateProduct = {
         :model="modalForm"
         :rules="validateProduct"
       >
+        <NFormItem label="商品标识" path="key">
+          <NInput
+            v-model:value="modalForm.key"
+            clearable
+            placeholder="请输入商品标识"
+            :disabled="!!modalForm.id"
+          />
+        </NFormItem>
         <NFormItem label="商品名称" path="name">
           <NInput v-model:value="modalForm.name" clearable placeholder="请输入商品名称" />
         </NFormItem>

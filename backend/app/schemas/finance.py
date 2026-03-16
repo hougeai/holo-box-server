@@ -8,16 +8,18 @@ from models.enums import GiftType, PointsFlowType
 
 
 class ProductCreate(BaseModel):
+    key: str = Field(description='商品唯一标识')
     name: str = Field(description='商品名称')
     points_price: int = Field(description='积分价格')
     description: Optional[str] = Field(default=None, description='商品描述')
     is_public: bool = Field(default=True, description='是否上架')
 
 
-class ProductUpdate(ProductCreate):
+class ProductUpdate(BaseModel):
     id: int = Field(description='ID')
     name: Optional[str] = Field(default=None, description='商品名称')
     points_price: Optional[int] = Field(default=None, description='积分价格')
+    description: Optional[str] = Field(default=None, description='商品描述')
     is_public: Optional[bool] = Field(default=None, description='是否上架')
 
 

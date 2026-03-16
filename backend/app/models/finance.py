@@ -6,10 +6,11 @@ from .enums import GiftType, PointsFlowType
 
 # 商品表
 class Product(BaseModel, TimestampMixin):
+    key = fields.CharField(max_length=50, unique=True, index=True, description='商品唯一标识')
     name = fields.CharField(max_length=100, description='商品名称')
     points_price = fields.BigIntField(description='积分价格')
     description = fields.TextField(null=True, description='商品描述')
-    is_public = fields.BooleanField(default=True, description='是否上架')
+    is_public = fields.BooleanField(default=True, index=True, description='是否上架')
 
     class Meta:
         table = 'product'

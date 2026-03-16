@@ -4,6 +4,7 @@ from tortoise.expressions import Q
 from core.config import settings
 from core.pay import payment_service
 from models.finance import Recharge
+from models.admin import User
 from controllers.finance import (
     product_controller,
     productorder_controller,
@@ -82,6 +83,10 @@ async def list_order(
 
 @router.post('/orders', summary='创建订单')
 async def create_order(obj_in: ProductOrderCreate):
+    # 先验证user_id是否存在
+    exists = await User.filter(user_id=obj_in.user_id).exists()
+    if not exists:
+        return Fail(code=404, msg='用户不存在')
     try:
         order = await productorder_controller.create_order(obj_in.user_id, obj_in.product_id)
         return Success(data=await order.to_dict())
@@ -114,6 +119,11 @@ async def create_recharge(obj_in: RechargeCreate):
     user_id = obj_in.user_id
     amount = obj_in.amount
     payment_method = obj_in.payment_method
+    # 先验证user_id是否存在
+    exists = await User.filter(user_id=user_id).exists()
+    if not exists:
+        return Fail(code=404, msg='用户不存在')
+
     if payment_method not in ['wechat', 'alipay']:
         return Fail(msg='支付方式只支持wechat/alipay')
     if payment_method == 'wechat':
@@ -130,8 +140,6 @@ async def create_recharge(obj_in: RechargeCreate):
                 trade_id=trade_id,
                 is_paid=False,
             )
-            # 重新从数据库获取确保时区数据正确
-            obj = await recharge_controller.get(id=obj.id)
             data = await obj.to_dict(exclude_fields=['id'])
             data['qr_code'] = result['data']['qr_code']
             data['trade_id'] = trade_id
@@ -177,10 +185,15 @@ async def list_gift(
 
 @router.post('/gifts', summary='新建赠送积分')
 async def create_gift(obj_in: GiftCreate):
+    # 先验证user_id是否存在
+    exists = await User.filter(user_id=obj_in.user_id).exists()
+    if not exists:
+        return Fail(code=404, msg='用户不存在')
     gift = await gift_controller.create_gift(
         obj_in.user_id, obj_in.points, obj_in.gift_type.value, obj_in.note, obj_in.expired_at
     )
-    return Success(data=await gift.to_dict())
+    data = await gift.to_dict()
+    return Success(data=data)
 
 
 @router.put('/gifts', summary='更新赠送积分')
