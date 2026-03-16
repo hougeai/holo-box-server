@@ -7,7 +7,8 @@ import os
 from PIL import Image
 from openai import AsyncOpenAI
 from models.agent import Profile
-from controllers.finance import product_controller, productorder_controller
+from models.enums import GiftType
+from controllers.finance import product_controller, gift_controller
 from .config import settings
 from .log import logger
 from .minio import oss
@@ -207,15 +208,16 @@ class BailianService:
         return None, f'百炼视频生成超时或失败: {task_id} {task_status}'
 
     async def generate_and_save(self, profile_id, img_url, subject_type, batch_size=2):
+        # 获取形象
+        profile = await Profile.get(id=profile_id)
+        # 获取所有情绪类型
+        emotions = list(vid_prompts[subject_type]['action'].keys())
+        results = {}
         try:
-            # 获取所有情绪类型
-            emotions = list(vid_prompts[subject_type]['action'].keys())
-            results = {}
             # 分批处理情绪视频生成任务
             for i in range(0, len(emotions), batch_size):
                 batch_emotions = emotions[i : i + batch_size]
                 logger.info(f'正在处理情绪批次: {batch_emotions}')
-
                 # 创建当前批次的任务
                 batch_tasks = [self.generate_video(img_url, subject_type, emotion) for emotion in batch_emotions]
                 batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -235,9 +237,6 @@ class BailianService:
                 # 在批次之间增加延迟以减少API压力
                 if i + batch_size < len(emotions):
                     await asyncio.sleep(1)
-            # 保存结果到数据库
-            profile = await Profile.get(id=profile_id)
-
             # 下载视频并上传到 OSS
             for emotion, info in results.items():
                 if info['status'] == 'success' and info['url']:
@@ -267,22 +266,28 @@ class BailianService:
                             info['msg'] = '上传到OSS失败'
             profile.gen_vids = results
             profile.status = 'success'
-            await profile.save()
-            # 生成订单
-            product = await product_controller.get_by_key('batch_vid_create')
-            await productorder_controller.create_order(profile.user_id, product.id)
+            await profile.save(update_fields=['gen_vids', 'status'])
             logger.info(f'{profile_id} 百炼视频生成结果已保存')
-            return results
         except Exception as e:
             logger.error(f'{profile_id} 百炼视频生成结果保存失败: {e}')
             # 如果出现异常，仍然尝试更新数据库状态
-            try:
-                profile = await Profile.get(id=profile_id)
-                profile.status = 'failed'
-                await profile.save()
-            except Exception as db_e:
-                logger.error(f'更新数据库状态失败: {db_e}')
-            raise e
+            profile.status = 'failed'
+            await profile.save(update_fields=['status'])
+        finally:
+            # 计算视频成功数量
+            success_count = sum(1 for info in results.values() if info.get('status') == 'success')
+            failed_count = len(emotions) - success_count
+            logger.info(f'{profile_id} 百炼视频生成结果: 成功 {success_count} 失败 {failed_count}')
+            # 积分补偿
+            if failed_count > 0:
+                product = await product_controller.get_by_key('single_vid_create')
+                points = product.points_price * failed_count
+                await gift_controller.create_gift(
+                    user_id=profile.user_id,
+                    points=points,
+                    gift_type=GiftType.COMPENSATION,
+                    note=f'百炼视频生成 {failed_count} 个失败，积分补偿',
+                )
 
 
 bl_service = BailianService()

@@ -210,10 +210,13 @@ async def list_grants(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
     user_id: str = Query('', description='用户ID，用于搜索'),
+    source_type: str = Query(None, description='来源类型'),
 ):
     q = Q()
     if user_id:
         q &= Q(user_id=user_id)
+    if source_type:
+        q &= Q(source_type=source_type)
     total, objs = await pointsgrant_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)

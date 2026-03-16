@@ -62,15 +62,17 @@ class Gift(BaseModel, TimestampMixin):
 class PointsGrant(BaseModel, TimestampMixin):
     user_id = fields.CharField(max_length=12, index=True, description='用户ID')
     amount = fields.BigIntField(description='剩余可用积分')
-    source_type = fields.CharField(max_length=20, index=True, description='来源类型: recharge/gift')
-    source_id = fields.BigIntField(index=True, description='关联的来源记录ID（recharge.id 或 gift.id）')
+    source_type = fields.CharField(max_length=20, description='来源类型: recharge/gift')
+    source_id = fields.BigIntField(description='关联的来源记录ID（recharge.id 或 gift.id）')
     expired_at = fields.DatetimeField(default=settings.PERMANENT_EXPIRED_AT, description='过期时间')
 
     class Meta:
         table = 'points_grant'
         indexes = [
-            ('user_id', 'expired_at'),
-            ('source_type', 'source_id'),
+            ('user_id', 'amount'),  # 覆盖余额查询
+            ('user_id', 'expired_at'),  # 覆盖消费排序查询
+            ('source_type', 'source_id'),  # 覆盖关联查询
+            ('expired_at', 'amount'),  # 覆盖过期任务查询
         ]
 
 
@@ -86,5 +88,5 @@ class PointsFlow(BaseModel, TimestampMixin):
     class Meta:
         table = 'points_flow'
         indexes = [
-            ('user_id', 'flow_type'),
+            ('user_id', 'flow_type', 'id'),
         ]

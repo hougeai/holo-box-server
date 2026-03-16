@@ -367,6 +367,8 @@ async def generate_vid(
     obj_in: ProfileVidGen,
 ):
     user_id = CTX_USER_ID.get()
+    if obj_in.method not in ['bailian']:
+        return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
     obj = await Profile.get(id=obj_in.id)
     if not obj:
         return Fail(code=400, msg='请先创建形象第一步获取形象id')
@@ -374,21 +376,23 @@ async def generate_vid(
     product = await product_controller.get_by_key('batch_vid_create')
     if not product or not product.is_public:
         return Fail(code=400, msg='形象视频生成暂不可用，请联系客服')
-    balance = await pointsflow_controller.get_balance(user_id)
-    if balance < product.points_price:
+    # 检查余额 + 立即扣减（在事务中完成）
+    try:
+        await productorder_controller.create_order(user_id, product.id)
+    except ValueError:
         return Fail(code=400, msg='积分余额不足')
-    # 根据不同方法创建形象
+
+    # 扣减成功后再提交任务
+    await BgTasks.add_task(
+        bl_service.generate_and_save, obj.id, obj.gen_img, obj.subject_type, 2
+    )  # 响应返回前端之后，fastapi会自动执行这个后台任务
+
+    # 更新profile
     obj.method = obj_in.method
-    if obj_in.method == 'bailian':
-        await BgTasks.add_task(
-            bl_service.generate_and_save, obj.id, obj.gen_img, obj.subject_type, 2
-        )  # 响应返回前端之后，fastapi会自动执行这个后台任务
-        obj.status = 'processing'
-        await obj.save()
-        data = await obj.to_dict()
-        return Success(data=data)
-    else:
-        return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
+    obj.status = 'processing'
+    await obj.save(update_fields=['method', 'status'])
+    data = await obj.to_dict()
+    return Success(data=data)
 
 
 @router.post('/profile/generate-vid-edit', summary='编辑模式下生成替换视频，轮询等待返回')

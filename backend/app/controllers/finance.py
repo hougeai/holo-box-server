@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from tortoise.transactions import in_transaction
+from tortoise import functions
 from models.finance import (
     Product,
     ProductOrder,
@@ -224,14 +225,15 @@ class PointsGrantController(CRUDBase[PointsGrant, PointsGrantCreate, PointsGrant
 
             for grant in expired_grants:
                 balance = await pointsflow_controller.get_balance(grant.user_id, conn)
-                new_balance = max(0, balance - grant.amount)
+                expired_amount = grant.amount
+                new_balance = max(0, balance - expired_amount)
                 grant.amount = 0
                 await grant.save(using_db=conn)
 
                 await PointsFlow.create(
                     user_id=grant.user_id,
                     flow_type=PointsFlowType.EXPIRE,
-                    amount=-grant.amount,
+                    amount=-expired_amount,
                     balance=new_balance,
                     using_db=conn,
                 )
@@ -243,13 +245,24 @@ class PointsFlowController(CRUDBase[PointsFlow, PointsFlowCreate, PointsFlowUpda
         super().__init__(model=PointsFlow)
 
     async def get_balance(self, user_id: str, conn=None) -> int:
-        """获取用户积分余额"""
-        query = PointsFlow.filter(user_id=user_id).order_by('-id').first()
+        """获取用户积分余额（通过 PointsGrant 聚合，确保数据一致性，后续可配合redis）"""
+        query = PointsGrant.filter(user_id=user_id, amount__gt=0).annotate(total=functions.Sum('amount'))
         if conn:
-            latest_flow = await query.using_db(conn)
+            result = await query.using_db(conn).first()
         else:
-            latest_flow = await query
-        return latest_flow.balance if latest_flow else 0
+            result = await query.first()
+        return result.total if result and result.total else 0
+
+    # async def get_balance(self, user_id: str, conn=None) -> int:
+    #     """获取用户积分余额"""
+    #     # 1. 先构建 QuerySet，不要立即执行 .first()
+    #     qs = PointsFlow.filter(user_id=user_id).order_by('-id')
+    #     # 2. 在执行前指定数据库连接
+    #     if conn:
+    #         qs = qs.using_db(conn)
+    #     # 3. 最后执行查询
+    #     latest_flow = await qs.first()
+    #     return latest_flow.balance if latest_flow else 0
 
 
 product_controller = ProductController()

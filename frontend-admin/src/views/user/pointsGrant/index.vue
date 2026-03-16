@@ -135,6 +135,18 @@ const columns = [
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
+        <QueryBarItem label="来源类型" :label-width="80">
+          <NSelect
+            v-model:value="queryItems.source_type"
+            clearable
+            placeholder="请选择来源类型"
+            :options="[
+              { label: '充值', value: 'recharge' },
+              { label: '赠送', value: 'gift' },
+            ]"
+            @update:value="$table?.handleSearch()"
+          />
+        </QueryBarItem>
       </template>
     </CrudTable>
   </CommonPage>

@@ -111,14 +111,21 @@ async def test_resizevid():
     print(result)
 
 
+def test_balance():
+    headers = {'token': 'dev'}
+    response = client.get('finance/points-balance/1', headers=headers)
+    print(response.status_code, response.json())
+
+
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
     # test_ota()
     # test_template()
-    import asyncio
+    test_balance()
+    # import asyncio
 
     # asyncio.run(test_xz())
     # asyncio.run(test_wx())
     # asyncio.run(test_profile())
-    asyncio.run(test_resizevid())
+    # asyncio.run(test_resizevid())
