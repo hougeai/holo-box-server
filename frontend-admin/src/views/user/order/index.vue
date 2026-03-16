@@ -114,7 +114,7 @@ const validateOrder = {
 <template>
   <CommonPage show-footer title="订单管理">
     <template #action>
-      <NButton v-permission="'post/api/v1/finance/orders'" type="primary" @click="handleAdd">
+      <NButton v-permission="'post/api/v1/finance/order/create'" type="primary" @click="handleAdd">
         <TheIcon icon="material-symbols:add" :size="18" class="mr-5" />新建订单
       </NButton>
     </template>

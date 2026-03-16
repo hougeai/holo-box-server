@@ -88,23 +88,23 @@ export default {
   deleteOta: (params = {}) => request.delete('/resource/ota/delete', { params }),
   uploadOtaFile: (data = {}) => request.post('/resource/ota/file', data, { timeout: 120000 }),
   // user-product
-  getProductList: (params = {}) => request.get('/finance/products', { params }),
-  createProduct: (data = {}) => request.post('/finance/products', data),
-  updateProduct: (data = {}) => request.put('/finance/products', data),
-  deleteProduct: (id) => request.delete(`/finance/products/${id}`),
+  getProductList: (params = {}) => request.get('/finance/product/list', { params }),
+  createProduct: (data = {}) => request.post('/finance/product/create', data),
+  updateProduct: (data = {}) => request.post('/finance/product/update', data),
+  deleteProduct: (params = {}) => request.delete('/finance/product/delete', { params }),
   // user-order
-  getOrderList: (params = {}) => request.get('/finance/orders', { params }),
-  createOrder: (data = {}) => request.post('/finance/orders', data),
+  getOrderList: (params = {}) => request.get('/finance/order/list', { params }),
+  createOrder: (data = {}) => request.post('/finance/order/create', data),
   // user-recharge
-  getRechargeList: (params = {}) => request.get('/finance/recharges', { params }),
-  createRecharge: (data = {}) => request.post('/finance/recharges', data),
-  getRechargeStatus: (orderId) => request.get(`/finance/recharges/${orderId}`),
+  getRechargeList: (params = {}) => request.get('/finance/recharge/list', { params }),
+  createRecharge: (data = {}) => request.post('/finance/recharge/create', data),
+  getRechargeStatus: (params = {}) => request.get('/finance/recharge/', { params }),
   // user-gift
-  getGiftList: (params = {}) => request.get('/finance/gifts', { params }),
-  createGift: (data = {}) => request.post('/finance/gifts', data),
-  updateGift: (data = {}) => request.put('/finance/gifts', data),
+  getGiftList: (params = {}) => request.get('/finance/gift/list', { params }),
+  createGift: (data = {}) => request.post('/finance/gift/create', data),
+  updateGift: (data = {}) => request.post('/finance/gift/update', data),
   // user-pointsGrant
-  getPointsGrantList: (params = {}) => request.get('/finance/points-grant', { params }),
+  getPointsGrantList: (params = {}) => request.get('/finance/points-grant/list', { params }),
   // user-pointsFlow
-  getPointsFlowList: (params = {}) => request.get('/finance/points-flow', { params }),
+  getPointsFlowList: (params = {}) => request.get('/finance/points-flow/list', { params }),
 }

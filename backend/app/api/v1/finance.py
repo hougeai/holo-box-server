@@ -29,7 +29,7 @@ router = APIRouter()
 # ========== Product ==========
 
 
-@router.get('/products', summary='商品列表')
+@router.get('/product/list', summary='商品列表')
 async def list_product(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
@@ -43,28 +43,28 @@ async def list_product(
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
 
-@router.post('/products', summary='创建商品')
+@router.post('/product/create', summary='创建商品')
 async def create_product(obj_in: ProductCreate):
     obj = await product_controller.create(obj_in)
     return Success(data=await obj.to_dict())
 
 
-@router.put('/products', summary='更新商品')
+@router.post('/product/update', summary='更新商品')
 async def update_product(obj_in: ProductUpdate):
     obj = await product_controller.update(obj_in.id, obj_in)
     return Success(data=await obj.to_dict())
 
 
-@router.delete('/products/{id}', summary='删除商品')
-async def delete_product(id: int):
-    await product_controller.delete(id=id)
+@router.delete('/product/delete', summary='删除商品')
+async def delete_product(id: int = Query(..., description='ID')):
+    await product_controller.remove(id=id)
     return Success(msg='删除成功')
 
 
 # ========== Order ==========
 
 
-@router.get('/orders', summary='订单列表')
+@router.get('/order/list', summary='订单列表')
 async def list_order(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
@@ -81,7 +81,7 @@ async def list_order(
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
 
-@router.post('/orders', summary='创建订单')
+@router.post('/order/create', summary='创建订单')
 async def create_order(obj_in: ProductOrderCreate):
     # 先验证user_id是否存在
     exists = await User.filter(user_id=obj_in.user_id).exists()
@@ -97,7 +97,7 @@ async def create_order(obj_in: ProductOrderCreate):
 # ========== Recharge ==========
 
 
-@router.get('/recharges', summary='充值列表')
+@router.get('/recharge/list', summary='充值列表')
 async def list_recharge(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
@@ -114,7 +114,7 @@ async def list_recharge(
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
 
-@router.post('/recharges', summary='创建充值')
+@router.post('/recharge/create', summary='创建充值')
 async def create_recharge(obj_in: RechargeCreate):
     user_id = obj_in.user_id
     amount = obj_in.amount
@@ -148,9 +148,9 @@ async def create_recharge(obj_in: RechargeCreate):
             return Fail(msg=result.get('error', ''))
 
 
-@router.get('/recharges/{trade_id}', summary='查询充值订单状态')
-async def get_recharge_status(trade_id: str):
-    obj = await Recharge.get(trade_id=trade_id)
+@router.get('/recharge/', summary='查询充值订单状态')
+async def get_recharge_status(trade_id: str = Query(..., description='交易ID')):
+    obj = await Recharge.filter(trade_id=trade_id).first()
     if not obj:
         return Fail(msg='Invalid Order ID')
     # 查询充值状态
@@ -166,7 +166,7 @@ async def get_recharge_status(trade_id: str):
 # ========== Gift ==========
 
 
-@router.get('/gifts', summary='赠送列表')
+@router.get('/gift/list', summary='赠送列表')
 async def list_gift(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
@@ -183,7 +183,7 @@ async def list_gift(
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
 
-@router.post('/gifts', summary='新建赠送积分')
+@router.post('/gift/create', summary='新建赠送积分')
 async def create_gift(obj_in: GiftCreate):
     # 先验证user_id是否存在
     exists = await User.filter(user_id=obj_in.user_id).exists()
@@ -196,7 +196,7 @@ async def create_gift(obj_in: GiftCreate):
     return Success(data=data)
 
 
-@router.put('/gifts', summary='更新赠送积分')
+@router.post('/gift/update', summary='更新赠送积分')
 async def update_gift(obj_in: GiftUpdate):
     obj = await gift_controller.update(obj_in.id, obj_in)
     return Success(data=await obj.to_dict())
@@ -205,7 +205,7 @@ async def update_gift(obj_in: GiftUpdate):
 # ========== PointsGrant ==========
 
 
-@router.get('/points-grant', summary='积分授予列表')
+@router.get('/points-grant/list', summary='积分授予列表')
 async def list_grants(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
@@ -225,7 +225,7 @@ async def list_grants(
 # ========== PointsFlow ==========
 
 
-@router.get('/points-flow', summary='积分流水列表')
+@router.get('/points-flow/list', summary='积分流水列表')
 async def list_flows(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
@@ -242,7 +242,7 @@ async def list_flows(
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
 
 
-@router.get('/points-balance/{user_id}', summary='获取用户积分余额')
-async def get_balance(user_id: str):
+@router.get('/points-balance', summary='获取用户积分余额')
+async def get_balance(user_id: str = Query(..., description='用户ID')):
     balance = await pointsflow_controller.get_balance(user_id)
     return Success(data={'balance': balance})

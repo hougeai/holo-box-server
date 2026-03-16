@@ -33,7 +33,7 @@ async def alipay_notify(request: Request):
     if trade_status == 'TRADE_SUCCESS' or trade_status == 'TRADE_FINISHED':
         # 支付成功，更新订单状态
         try:
-            obj = await Recharge.get(trade_id=out_trade_no)
+            obj = await Recharge.filter(trade_id=out_trade_no).first()
             if not obj:
                 raise HTTPException(status_code=404, detail='Order not found')
             if not obj.is_paid:

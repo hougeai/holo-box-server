@@ -137,12 +137,12 @@ const columns = [
               icon: renderIcon('material-symbols:edit', { size: 16 }),
             },
           ),
-          [[vPermission, 'put/api/v1/finance/products']],
+          [[vPermission, 'post/api/v1/finance/product/update']],
         ),
         h(
           NPopconfirm,
           {
-            onPositiveClick: () => handleDelete(row.id, false),
+            onPositiveClick: () => handleDelete({ id: row.id }, false),
             onNegativeClick: () => {},
           },
           {
@@ -153,12 +153,13 @@ const columns = [
                   {
                     size: 'small',
                     type: 'error',
+                    loading: modalLoading.value,
                   },
                   {
                     icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
                   },
                 ),
-                [[vPermission, 'delete/api/v1/finance/products/{id}']],
+                [[vPermission, 'delete/api/v1/finance/product/delete']],
               ),
             default: () => h('div', {}, '确定删除该商品吗?'),
           },
@@ -205,7 +206,11 @@ const validateProduct = {
 <template>
   <CommonPage show-footer title="商品管理">
     <template #action>
-      <NButton v-permission="'post/api/v1/finance/products'" type="primary" @click="handleAdd">
+      <NButton
+        v-permission="'post/api/v1/finance/product/create'"
+        type="primary"
+        @click="handleAdd"
+      >
         <TheIcon icon="material-symbols:add" :size="18" class="mr-5" />新建商品
       </NButton>
     </template>

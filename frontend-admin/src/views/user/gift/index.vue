@@ -150,7 +150,7 @@ const columns = [
             icon: renderIcon('material-symbols:edit', { size: 16 }),
           },
         ),
-        [[vPermission, 'put/api/v1/finance/gifts']],
+        [[vPermission, 'post/api/v1/finance/gift/update']],
       )
     },
   },
@@ -193,7 +193,7 @@ const validateGift = {
 <template>
   <CommonPage show-footer title="赠送管理">
     <template #action>
-      <NButton v-permission="'post/api/v1/finance/gifts'" type="primary" @click="handleAdd">
+      <NButton v-permission="'post/api/v1/finance/gift/create'" type="primary" @click="handleAdd">
         <TheIcon icon="material-symbols:add" :size="18" class="mr-5" />新建赠送
       </NButton>
     </template>

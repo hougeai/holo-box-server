@@ -201,7 +201,7 @@ const startPolling = () => {
     pollCount.value++
 
     try {
-      const res = await api.getRechargeStatus(modalForm.value.trade_id)
+      const res = await api.getRechargeStatus({ trade_id: modalForm.value.trade_id })
       if (res.code === 200 && res.data.is_paid) {
         // 支付成功
         stopPolling()
@@ -257,7 +257,7 @@ onMounted(() => {
   <CommonPage show-footer title="充值记录">
     <template #action>
       <NButton
-        v-permission="'post/api/v1/finance/recharges'"
+        v-permission="'post/api/v1/finance/recharge/create'"
         type="primary"
         @click="handleAddWrapper"
       >

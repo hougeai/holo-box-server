@@ -60,6 +60,7 @@ def make_middlewares():
                 r'^/$',
                 '/favicon.ico',
                 '/ota',
+                '/alipay/notify',
             ],
         ),
     ]
