@@ -244,12 +244,7 @@ const validateProduct = {
         :rules="validateProduct"
       >
         <NFormItem label="商品标识" path="key">
-          <NInput
-            v-model:value="modalForm.key"
-            clearable
-            placeholder="请输入商品标识"
-            :disabled="!!modalForm.id"
-          />
+          <NInput v-model:value="modalForm.key" clearable placeholder="请输入商品标识" />
         </NFormItem>
         <NFormItem label="商品名称" path="name">
           <NInput v-model:value="modalForm.name" clearable placeholder="请输入商品名称" />

@@ -17,6 +17,7 @@ class ProductCreate(BaseModel):
 
 class ProductUpdate(BaseModel):
     id: int = Field(description='ID')
+    key: Optional[str] = Field(default=None, description='商品唯一标识')
     name: Optional[str] = Field(default=None, description='商品名称')
     points_price: Optional[int] = Field(default=None, description='积分价格')
     description: Optional[str] = Field(default=None, description='商品描述')

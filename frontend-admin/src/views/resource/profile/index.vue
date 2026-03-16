@@ -184,7 +184,6 @@ const handleUploadOriImg = async () => {
   const formData = new FormData()
   formData.append('name', uploadForm.value.name)
   formData.append('ori_img', uploadForm.value.oriImgFile)
-  formData.append('ret_gen_img', true)
   formData.append('subject_type', uploadForm.value.subjectType)
 
   try {
@@ -378,7 +377,6 @@ const handleAIGCUploadOriImg = async () => {
   const formData = new FormData()
   formData.append('name', aigcForm.value.name)
   formData.append('ori_img', aigcForm.value.oriImgFile)
-  formData.append('ret_gen_img', true)
   formData.append('subject_type', aigcForm.value.subjectType)
 
   try {

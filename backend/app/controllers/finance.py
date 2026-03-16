@@ -34,6 +34,9 @@ class ProductController(CRUDBase[Product, ProductCreate, ProductUpdate]):
     def __init__(self):
         super().__init__(model=Product)
 
+    async def get_by_key(self, key: str) -> Optional[Product]:
+        return await self.model.filter(key=key).first()
+
 
 # ========== ProductOrder ==========
 class ProductOrderController(CRUDBase[ProductOrder, ProductOrderCreate, ProductOrderUpdate]):
@@ -46,36 +49,37 @@ class ProductOrderController(CRUDBase[ProductOrder, ProductOrderCreate, ProductO
         product = await Product.get(id=product_id)
         if not product or not product.is_public:
             raise ValueError('商品不存在或已下架')
-
-        # 扣除积分并创建订单
         async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
-            # 扣减积分（包含余额检查）
-            consumed_grant_ids = await self._consume_points(user_id, product.points_price, conn)
+            return await self.create_order_in_transaction(user_id, product, conn)
 
-            # 获取扣减后的余额
-            balance = await pointsflow_controller.get_balance(user_id, conn)
-            new_balance = balance - product.points_price
+    async def create_order_in_transaction(self, user_id, product, conn) -> ProductOrder:
+        """在事务中创建订单的核心逻辑"""
+        # 扣减积分（包含余额检查）
+        consumed_grant_ids = await self._consume_points(user_id, product.points_price, conn)
 
-            # 创建订单
-            order = await ProductOrder.create(
-                user_id=user_id,
-                product_id=product_id,
-                points=product.points_price,
-                status='completed',
-                using_db=conn,
-            )
+        # 获取扣减后的余额
+        balance = await pointsflow_controller.get_balance(user_id, conn)
+        new_balance = balance - product.points_price
 
-            # 记录积分流水
-            await PointsFlow.create(
-                user_id=user_id,
-                flow_type=PointsFlowType.ORDER,
-                amount=-product.points_price,
-                balance=new_balance,
-                grant_ids=consumed_grant_ids,
-                order_id=order.id,
-                using_db=conn,
-            )
+        # 创建订单
+        order = await ProductOrder.create(
+            user_id=user_id,
+            product_id=product.id,
+            points=product.points_price,
+            status='completed',
+            using_db=conn,
+        )
 
+        # 记录积分流水
+        await PointsFlow.create(
+            user_id=user_id,
+            flow_type=PointsFlowType.ORDER,
+            amount=-product.points_price,
+            balance=new_balance,
+            grant_ids=consumed_grant_ids,
+            order_id=order.id,
+            using_db=conn,
+        )
         return order
 
     async def _consume_points(self, user_id: str, points: int, conn) -> list[int]:

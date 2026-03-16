@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from fastapi import File, UploadFile, Form
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 from core.background import CTX_USER_ID, BgTasks
 from core.log import logger
 from core.xz_api import xz_service
@@ -18,6 +19,9 @@ from controllers import (
     profile_controller,
     system_prompt_controller,
     mcp_tool_controller,
+    product_controller,
+    productorder_controller,
+    pointsflow_controller,
 )
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import (
@@ -281,13 +285,20 @@ async def list_profile(
 async def upload_img(
     name: str = Form(..., description='形象名称'),
     ori_img: UploadFile = File(...),
-    ret_gen_img: bool = Form(True, description='是否生成形象图片'),
     subject_type: str = Form('human', description='形象主体类型：human/animal等'),
 ):
     user_id = CTX_USER_ID.get()
     obj = await Profile.filter(user_id=user_id, name=name).first()
     if obj:
         return Fail(code=400, msg=f'{name}已存在，请重新命名')
+    # 查看商品价格和积分余额
+    product = await product_controller.get_by_key('profile_create')
+    if not product or not product.is_public:
+        return Fail(code=400, msg='形象生成暂时不可用，请联系客服')
+    balance = await pointsflow_controller.get_balance(user_id)
+    if balance < product.points_price:
+        return Fail(code=400, msg='积分余额不足')
+
     ori_img = await ori_img.read()
     # 验证图片尺寸
     is_valid, error_msg = bl_service.validate_image_size(ori_img)
@@ -308,28 +319,45 @@ async def upload_img(
         return Fail(code=400, msg='上传原始图片失败')
     # 上传成功，根据ori_img_url生成形象图片
     ori_img_url = f'{settings.OSS_BUCKET_URL}/{ori_img_key}'
-    obj.ori_img = ori_img_url
-    if ret_gen_img:
-        gen_img_url, msg = await bl_service.generate_image(ori_img_url, subject_type)
-        if not gen_img_url:
-            logger.error(f'生成形象图片失败: {msg}')
-            await profile_controller.remove(id=obj.id)
-            return Fail(code=400, msg=f'生成形象图片失败: {msg}')
-        # 下载百炼生成的图片并上传到 oss
-        suffix = hashlib.sha256(f'{obj.id}-gen'.encode()).hexdigest()[:4]
-        gen_img_key = f'profile/img/{obj.id}-gen-img-{suffix}.png'
-        gen_img_data, content_type = await bl_service.download_file(gen_img_url, 'image/png')
-        if not gen_img_data:
-            logger.error('下载生成图片失败')
-            await profile_controller.remove(id=obj.id)
-            return Fail(code=400, msg='下载生成图片失败')
-        result = await oss.upload_file_async(gen_img_key, file_data=gen_img_data, content_type=content_type)
-        if not result:
-            logger.error('上传生成图片失败')
-            await profile_controller.remove(id=obj.id)
-            return Fail(code=400, msg='上传生成图片失败')
-        obj.gen_img = f'{settings.OSS_BUCKET_URL}/{gen_img_key}'
-    await obj.save()
+    gen_img_url, msg = await bl_service.generate_image(ori_img_url, subject_type)
+    if not gen_img_url:
+        logger.error(f'生成形象图片失败: {msg}')
+        # 删除原始图片
+        await oss.delete_file_async(ori_img_key)
+        await profile_controller.remove(id=obj.id)
+        return Fail(code=400, msg=f'生成形象图片失败: {msg}')
+    # 下载百炼生成的图片并上传到 oss
+    suffix = hashlib.sha256(f'{obj.id}-gen'.encode()).hexdigest()[:4]
+    gen_img_key = f'profile/img/{obj.id}-gen-img-{suffix}.png'
+    gen_img_data, content_type = await bl_service.download_file(gen_img_url, 'image/png')
+    if not gen_img_data:
+        logger.error('下载生成图片失败')
+        await oss.delete_file_async(ori_img_key)
+        await profile_controller.remove(id=obj.id)
+        return Fail(code=400, msg='下载生成图片失败')
+    result = await oss.upload_file_async(gen_img_key, file_data=gen_img_data, content_type=content_type)
+    if not result:
+        logger.error('上传生成图片失败')
+        await oss.delete_file_async(ori_img_key)
+        await profile_controller.remove(id=obj.id)
+        return Fail(code=400, msg='上传生成图片失败')
+
+    # 生成订单（使用事务保证一致性）
+    async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
+        # 在事务中更新profile
+        await (
+            Profile.filter(id=obj.id)
+            .using_db(conn)
+            .update(
+                ori_img=ori_img_url,
+                gen_img=f'{settings.OSS_BUCKET_URL}/{gen_img_key}',
+                status='created',
+            )
+        )
+        # 创建订单
+        await productorder_controller.create_order_in_transaction(user_id, product, conn)
+
+    obj = await profile_controller.get(id=obj.id)
     data = await obj.to_dict()
     return Success(data=data)
 
@@ -338,9 +366,17 @@ async def upload_img(
 async def generate_vid(
     obj_in: ProfileVidGen,
 ):
+    user_id = CTX_USER_ID.get()
     obj = await Profile.get(id=obj_in.id)
     if not obj:
         return Fail(code=400, msg='请先创建形象第一步获取形象id')
+    # 查看商品价格和积分余额
+    product = await product_controller.get_by_key('batch_vid_create')
+    if not product or not product.is_public:
+        return Fail(code=400, msg='形象视频生成暂不可用，请联系客服')
+    balance = await pointsflow_controller.get_balance(user_id)
+    if balance < product.points_price:
+        return Fail(code=400, msg='积分余额不足')
     # 根据不同方法创建形象
     obj.method = obj_in.method
     if obj_in.method == 'bailian':
