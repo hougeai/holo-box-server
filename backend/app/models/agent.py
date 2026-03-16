@@ -90,6 +90,7 @@ class Profile(BaseModel, TimestampMixin):
     sys_vids = fields.JSONField(null=True, description='系统状态视频列表，emotion-url 字典')
     profile_vid = fields.TextField(null=True, description='形象展示视频')
     avatar = fields.TextField(null=True, description='头像')
+    deleted_at = fields.DatetimeField(null=True, index=True, description='软删除时间')
 
 
 # 系统提示词表

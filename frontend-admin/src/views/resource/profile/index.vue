@@ -104,26 +104,18 @@ const sysStatus = [
 // 轮询定时器
 let pollTimer = null
 
-const {
-  modalVisible,
-  modalTitle,
-  modalLoading,
-  handleSave,
-  modalForm,
-  modalFormRef,
-  handleEdit,
-  handleDelete,
-} = useCRUD({
-  name: '形象',
-  initForm: {
-    user_id: userStore.userId,
-    public: null,
-    gen_vids: {},
-  },
-  doUpdate: api.updateProfile,
-  doDelete: api.deleteProfile,
-  refresh: () => $table.value?.handleSearch(),
-})
+const { modalVisible, modalTitle, modalLoading, handleSave, modalForm, modalFormRef, handleEdit } =
+  useCRUD({
+    name: '形象',
+    initForm: {
+      user_id: userStore.userId,
+      public: null,
+      gen_vids: {},
+    },
+    doUpdate: api.updateProfile,
+    doDelete: api.deleteProfile,
+    refresh: () => $table.value?.handleSearch(),
+  })
 
 // 打开创建对话框
 const openCreateModal = () => {
@@ -547,6 +539,13 @@ const publicOptions = [
   { label: '否', value: false },
 ]
 
+// 是否删除选项
+const deletedOptions = [
+  { label: '全部', value: null },
+  { label: '未删除', value: false },
+  { label: '已删除', value: true },
+]
+
 const columns = [
   {
     title: 'ID',
@@ -560,14 +559,12 @@ const columns = [
     key: 'user_id',
     width: 30,
     align: 'center',
-    ellipsis: { tooltip: true },
   },
   {
     title: '形象名称',
     key: 'name',
     width: 30,
     align: 'center',
-    ellipsis: { tooltip: true },
   },
   {
     title: '主体类型',
@@ -930,7 +927,7 @@ const columns = [
   {
     title: '创建时间',
     key: 'create_at',
-    width: 60,
+    width: 50,
     align: 'center',
     ellipsis: { tooltip: true },
     render(row) {
@@ -944,12 +941,29 @@ const columns = [
     },
   },
   {
+    title: '删除时间',
+    key: 'deleted_at',
+    width: 50,
+    align: 'center',
+    ellipsis: { tooltip: true },
+    render(row) {
+      return h(
+        NButton,
+        { size: 'small', type: 'text', ghost: true },
+        {
+          default: () => (row.deleted_at !== null ? formatDateTime(row.deleted_at) : '-'),
+        },
+      )
+    },
+  },
+  {
     title: '操作',
     key: 'actions',
-    width: 60,
+    width: 80,
     align: 'center',
     fixed: 'right',
     render(row) {
+      const isDeleted = row.deleted_at !== null
       return [
         withDirectives(
           h(
@@ -957,41 +971,101 @@ const columns = [
             {
               size: 'small',
               type: 'primary',
-              style: 'margin-right: 8px;',
+              style: 'margin-right: 2px;',
               onClick: () => {
                 handleEdit(row)
               },
             },
-            {
-              icon: renderIcon('material-symbols:edit', { size: 16 }),
-            },
+            { default: () => '编辑' },
           ),
           [[vPermission, 'post/api/v1/agent/profile/update']],
         ),
+        isDeleted
+          ? h(
+              NButton,
+              {
+                size: 'small',
+                type: 'success',
+                style: 'margin-right: 2px;',
+                loading: modalLoading.value,
+                onClick: async () => {
+                  try {
+                    modalLoading.value = true
+                    const res = await api.restoreProfile({ id: row.id })
+                    if (res.code === 200) {
+                      $message.success('恢复成功')
+                      $table.value?.handleSearch()
+                    } else {
+                      $message.error(res.msg || '恢复失败')
+                    }
+                  } catch {
+                    $message.error('恢复失败')
+                  } finally {
+                    modalLoading.value = false
+                  }
+                },
+              },
+              { default: () => '恢复' },
+            )
+          : h(
+              NButton,
+              {
+                size: 'small',
+                type: 'error',
+                style: 'margin-right: 2px;',
+                loading: modalLoading.value,
+                onClick: async () => {
+                  try {
+                    modalLoading.value = true
+                    const res = await api.deleteProfile({ id: row.id })
+                    if (res.code === 200) {
+                      $message.success('删除成功')
+                      $table.value?.handleSearch()
+                    } else {
+                      $message.error(res.msg || '删除失败')
+                    }
+                  } catch {
+                    $message.error('删除失败')
+                  } finally {
+                    modalLoading.value = false
+                  }
+                },
+              },
+              { default: () => '软删' },
+            ),
         h(
           NPopconfirm,
           {
-            onPositiveClick: () => handleDelete({ id: row.id }),
+            onPositiveClick: async () => {
+              try {
+                modalLoading.value = true
+                const res = await api.destroyProfile({ id: row.id })
+                if (res.code === 200) {
+                  $message.success('删除成功')
+                  $table.value?.handleSearch()
+                } else {
+                  $message.error(res.msg || '删除失败')
+                }
+              } catch {
+                $message.error('删除失败')
+              } finally {
+                modalLoading.value = false
+              }
+            },
             onNegativeClick: () => {},
           },
           {
             trigger: () =>
-              withDirectives(
-                h(
-                  NButton,
-                  {
-                    size: 'small',
-                    type: 'error',
-                    style: 'margin-right: 8px;',
-                    loading: modalLoading.value,
-                  },
-                  {
-                    icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
-                  },
-                ),
-                [[vPermission, 'delete/api/v1/agent/profile/delete']],
+              h(
+                NButton,
+                {
+                  size: 'small',
+                  type: 'warning',
+                  loading: modalLoading.value,
+                },
+                { default: () => '硬删' },
               ),
-            default: () => h('div', {}, '确定删除吗?'),
+            default: () => h('div', {}, '确定彻底删除吗？此操作不可恢复！'),
           },
         ),
       ]
@@ -1028,6 +1102,15 @@ const columns = [
           <NSelect
             v-model:value="queryItems.public"
             :options="publicOptions"
+            clearable
+            placeholder="请选择"
+            @update:value="$table?.handleSearch()"
+          />
+        </QueryBarItem>
+        <QueryBarItem label="是否删除" :label-width="60" :content-width="140">
+          <NSelect
+            v-model:value="queryItems.deleted"
+            :options="deletedOptions"
             clearable
             placeholder="请选择"
             @update:value="$table?.handleSearch()"

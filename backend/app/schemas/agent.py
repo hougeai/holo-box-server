@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, Field
+from datetime import datetime
 from models.enums import SubjectType
 
 # ========== AgentTemplate ==========
@@ -123,6 +124,7 @@ class ProfileCreate(BaseModel):
     sys_vids: Optional[dict] = Field(default=None, description='系统状态视频，emotion-url 字典')
     profile_vid: Optional[str] = Field(default=None, description='形象展示视频')
     avatar: Optional[str] = Field(default=None, description='头像')
+    deleted_at: Optional[datetime] = Field(default=None, description='软删除时间')
 
 
 class ProfileUpdate(ProfileCreate): ...

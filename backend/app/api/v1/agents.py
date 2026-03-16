@@ -269,13 +269,18 @@ async def list_profile(
     page: int = Query(1, description='页码'),
     page_size: int = Query(999, description='每页数量'),
     user_id: Optional[str] = Query(None, description='用户ID，用于搜索'),
-    public: Optional[bool] = Query(None, description='是否公开的形象，用户前端传入true'),
+    public: Optional[bool] = Query(None, description='是否公开的形象，用户前端传入true返回管理员创建的形象'),
+    deleted: Optional[bool] = Query(None, description='是否包含已软删除的记录，用户前端传入false'),
 ):
     q = Q()
     if user_id:
         q &= Q(user_id=user_id)
     if public is not None:
         q &= Q(public=public)
+    if deleted is True:
+        q &= Q(deleted_at__isnull=False)
+    elif deleted is False:
+        q &= Q(deleted_at=None)
     total, objs = await profile_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
@@ -512,14 +517,25 @@ async def update_profile(
     return Success(data=data)
 
 
-@router.delete('/profile/delete', summary='删除形象')
+@router.delete('/profile/delete', summary='软删除形象')
 async def delete_profile(
     id: int = Query(..., description='ID'),
 ):
     obj = await profile_controller.get(id=id)
     if not obj:
         return Fail(code=400, msg='形象未创建')
-    # 先删除oss中的文件：注意要改为key，而不是url
+    await profile_controller.soft_delete(id=id)
+    return Success(msg='删除成功')
+
+
+@router.delete('/profile/destroy', summary='彻底删除形象（不可恢复）')
+async def destroy_profile(
+    id: int = Query(..., description='ID'),
+):
+    obj = await profile_controller.get(id=id)
+    if not obj:
+        return Fail(code=400, msg='形象未创建')
+    # 删除oss中的文件：注意要改为key，而不是url
     if obj.ori_img:
         key = obj.ori_img.replace(settings.OSS_BUCKET_URL, '')
         await oss.delete_file_async(key=key)
@@ -544,6 +560,19 @@ async def delete_profile(
         await oss.delete_file_async(key=key)
     await profile_controller.remove(id=id)
     return Success(msg='删除成功')
+
+
+@router.post('/profile/restore', summary='恢复已删除的形象')
+async def restore_profile(
+    obj_in: ProfileUpdate,
+):
+    obj = await profile_controller.get(id=obj_in.id)
+    if not obj:
+        return Fail(code=400, msg='形象未创建')
+    if not obj.deleted_at:
+        return Fail(code=400, msg='形象未被删除，无需恢复')
+    await profile_controller.restore(id=obj_in.id)
+    return Success(msg='恢复成功')
 
 
 # 系统提示词相关

@@ -59,6 +59,8 @@ export default {
   profileUploadVid: (data = {}) => request.post('/agent/profile/upload-vid', data),
   updateProfile: (data = {}) => request.post('/agent/profile/update', data),
   deleteProfile: (params = {}) => request.delete('/agent/profile/delete', { params }),
+  restoreProfile: (data = {}) => request.post('/agent/profile/restore', data),
+  destroyProfile: (params = {}) => request.delete('/agent/profile/destroy', { params }),
   // resource-sysPrompt
   getSysPromptList: (params = {}) => request.get('/agent/sys-prompt/list', { params }),
   createSysPrompt: (data = {}) => request.post('/agent/sys-prompt/create', data),
