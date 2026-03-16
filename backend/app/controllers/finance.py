@@ -60,7 +60,6 @@ class ProductOrderController(CRUDBase[ProductOrder, ProductOrderCreate, ProductO
 
         # 获取扣减后的余额
         balance = await pointsflow_controller.get_balance(user_id, conn)
-        new_balance = balance - product.points_price
 
         # 创建订单
         order = await ProductOrder.create(
@@ -76,7 +75,7 @@ class ProductOrderController(CRUDBase[ProductOrder, ProductOrderCreate, ProductO
             user_id=user_id,
             flow_type=PointsFlowType.ORDER,
             amount=-product.points_price,
-            balance=new_balance,
+            balance=balance,
             grant_ids=consumed_grant_ids,
             order_id=order.id,
             using_db=conn,
@@ -153,12 +152,11 @@ class RechargeController(CRUDBase[Recharge, RechargeCreate, RechargeUpdate]):
         )
 
         balance = await pointsflow_controller.get_balance(user_id, conn)
-        new_balance = balance + points
         await PointsFlow.create(
             user_id=user_id,
             flow_type=flow_type,
             amount=points,
-            balance=new_balance,
+            balance=balance,
             grant_ids=[grant.id],
             using_db=conn,
         )
@@ -196,12 +194,11 @@ class GiftController(CRUDBase[Gift, GiftCreate, GiftUpdate]):
             )
 
             balance = await pointsflow_controller.get_balance(user_id, conn)
-            new_balance = balance + points
             await PointsFlow.create(
                 user_id=user_id,
                 flow_type=PointsFlowType.GIFT,
                 amount=points,
-                balance=new_balance,
+                balance=balance,
                 grant_ids=[grant.id],
                 using_db=conn,
             )
@@ -224,17 +221,16 @@ class PointsGrantController(CRUDBase[PointsGrant, PointsGrantCreate, PointsGrant
             )
 
             for grant in expired_grants:
-                balance = await pointsflow_controller.get_balance(grant.user_id, conn)
                 expired_amount = grant.amount
-                new_balance = max(0, balance - expired_amount)
                 grant.amount = 0
                 await grant.save(using_db=conn)
+                balance = await pointsflow_controller.get_balance(grant.user_id, conn)
 
                 await PointsFlow.create(
                     user_id=grant.user_id,
                     flow_type=PointsFlowType.EXPIRE,
                     amount=-expired_amount,
-                    balance=new_balance,
+                    balance=balance,
                     using_db=conn,
                 )
             logger.info(f'处理过期积分成功: {len(expired_grants)}')

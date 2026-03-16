@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from tortoise.expressions import Q
-from api import api_router, ota_router
+from api import api_router, ota_router, callback_router
 from models.admin import Api, Menu, Role, RoleMenu, RoleApi, SystemConfig
 from models.agent import AgentTemplate, Agent, LLM, Voice, McpTool
 from models.device import Device
@@ -77,6 +77,7 @@ def register_exceptions(app: FastAPI):
 def register_routers(app: FastAPI):
     app.include_router(api_router, prefix='/api')
     app.include_router(ota_router)
+    app.include_router(callback_router)
 
 
 async def init_db():
