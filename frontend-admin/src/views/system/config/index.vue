@@ -69,7 +69,7 @@ const columns = [
     title: '创建时间',
     key: 'create_at',
     align: 'center',
-    width: 40,
+    width: 60,
     ellipsis: { tooltip: true },
     render(row) {
       return h(
@@ -85,7 +85,7 @@ const columns = [
     title: '更新时间',
     key: 'update_at',
     align: 'center',
-    width: 40,
+    width: 60,
     ellipsis: { tooltip: true },
     render(row) {
       return h(

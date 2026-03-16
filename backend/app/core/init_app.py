@@ -9,6 +9,7 @@ from api import api_router, ota_router, callback_router
 from models.admin import Api, Menu, Role, RoleMenu, RoleApi, SystemConfig
 from models.agent import AgentTemplate, Agent, LLM, Voice, McpTool
 from models.device import Device
+from models.finance import Product
 from models.resource import Ota
 from models.enums import MenuType
 from schemas.admin import UserCreate
@@ -653,6 +654,38 @@ async def init_system_config():
             logger.info(f"系统配置初始化: {config_data['key']} = {config_data['value']}")
 
 
+async def init_products():
+    """初始化产品"""
+    products = [
+        {
+            'key': 'profile_create',
+            'name': '创建形象栏位',
+            'points_price': 100,
+            'description': '创建形象坑位，生成一张形象照',
+            'is_public': True,
+        },
+        {
+            'key': 'single_vid_create',
+            'name': '生成单个形象视频',
+            'points_price': 120,
+            'description': '生成单个形象视频',
+            'is_public': True,
+        },
+        {
+            'key': 'batch_vid_create',
+            'name': '生成所有形象视频',
+            'points_price': 1200,
+            'description': '生成所有形象视频',
+            'is_public': True,
+        },
+    ]
+    for product_data in products:
+        exists = await Product.exists(key=product_data['key'])
+        if not exists:
+            await Product.create(**product_data)
+            logger.info(f"产品初始化: {product_data['key']} = {product_data['name']}")
+
+
 async def init_data(app: FastAPI):
     await init_db()
     await init_menus()
@@ -667,6 +700,7 @@ async def init_data(app: FastAPI):
     await init_voices()
     await init_mcps()
     await init_system_config()
+    await init_products()
 
 
 async def check_mcp_status_periodically(check_interval=60):
