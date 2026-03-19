@@ -303,7 +303,7 @@ async def upload_img(
         return Fail(code=400, msg='形象生成暂时不可用，请联系客服')
     balance = await pointsflow_controller.get_balance(user_id)
     if balance < product.points_price:
-        return Fail(code=400, msg='积分余额不足')
+        return Fail(code=402, msg='积分余额不足')
 
     ori_img = await ori_img.read()
     # 验证图片尺寸
@@ -386,7 +386,7 @@ async def generate_vid(
     try:
         await productorder_controller.create_order(user_id, product.id)
     except ValueError:
-        return Fail(code=400, msg='积分余额不足')
+        return Fail(code=402, msg='积分余额不足')
 
     # 扣减成功后再提交任务
     # await BgTasks.add_task(
