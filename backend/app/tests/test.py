@@ -111,10 +111,18 @@ async def test_resizevid():
     print(result)
 
 
-def test_balance():
+def test_vid_status():
     headers = {'token': 'dev'}
-    response = client.get('finance/points-balance/1', headers=headers)
-    print(response.status_code, response.json())
+    # 生成视频
+    # data = {'id': 92, 'method': 'bailian'}
+    # response = client.post('agent/profile/generate-vid', json=data, headers=headers)
+    # 测试查询任务状态
+    # params = {'task_id': 'b55d48fe-3a11-4ae2-8ce9-e4755726560c'}
+    # response = client.get('agent/profile/task-status/', params=params, headers=headers)
+    # 测试视频
+    response = client.get('agent/profile/', params={'id': 92}, headers=headers)
+    print(response.status_code)
+    print(response.json())
 
 
 if __name__ == '__main__':
@@ -122,7 +130,7 @@ if __name__ == '__main__':
     # test_oss()
     # test_ota()
     # test_template()
-    test_balance()
+    test_vid_status()
     # import asyncio
 
     # asyncio.run(test_xz())

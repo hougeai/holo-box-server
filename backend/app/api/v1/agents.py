@@ -4,10 +4,11 @@ from fastapi import APIRouter, Query
 from fastapi import File, UploadFile, Form
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
-from core.background import CTX_USER_ID, BgTasks
+from core.background import CTX_USER_ID
 from core.log import logger
 from core.xz_api import xz_service
 from core.profile_api import bl_service, llm
+from core.celery_app import generate_video_task, celery_app
 from core.minio import oss
 from core.config import settings
 from core.mcp_manager import mcp_manager
@@ -388,14 +389,16 @@ async def generate_vid(
         return Fail(code=400, msg='积分余额不足')
 
     # 扣减成功后再提交任务
-    await BgTasks.add_task(
-        bl_service.generate_and_save, obj.id, obj.gen_img, obj.subject_type, 2
-    )  # 响应返回前端之后，fastapi会自动执行这个后台任务
-
+    # await BgTasks.add_task(
+    #     bl_service.generate_and_save, obj.id, obj.gen_img, obj.subject_type, 2
+    # )  # 响应返回前端之后，fastapi会自动执行这个后台任务
+    task = generate_video_task.delay(obj.id, obj.gen_img, obj.subject_type, 2)
+    logger.info(f'开始执行视频生成任务: task_id={task.id}')
     # 更新profile
     obj.method = obj_in.method
     obj.status = 'processing'
-    await obj.save(update_fields=['method', 'status'])
+    obj.task_id = task.id
+    await obj.save(update_fields=['method', 'status', 'task_id'])
     data = await obj.to_dict()
     return Success(data=data)
 
@@ -431,7 +434,7 @@ async def generate_vid_edit(
         return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
 
 
-@router.get('/profile/', summary='查询形象详情，包括形象生成状态等')
+@router.get('/profile/', summary='查询形象详情')
 async def get_profile(
     id: int = Query(..., description='ID'),
 ):
@@ -440,6 +443,19 @@ async def get_profile(
         return Fail(code=400, msg='Profile not found')
     data = await obj.to_dict()
     return Success(data=data)
+
+
+@router.get('/profile/task-status/', summary='查询视频生成任务实时状态')
+async def get_task_status(
+    task_id: str = Query(..., description='Celery任务ID'),
+):
+    """只查Redis，用于实时监控"""
+    result = celery_app.AsyncResult(task_id)
+    return Success(
+        data={
+            'status': result.status  # PENDING: 排队 | STARTED: 执行 | SUCCESS: 成功 | FAILURE: 失败 | RETRY: 重试
+        }
+    )
 
 
 @router.post('/profile/upload-vid', summary='手动创建形象：上传视频文件，返回url')

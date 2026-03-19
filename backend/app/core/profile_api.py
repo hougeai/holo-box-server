@@ -289,6 +289,21 @@ class BailianService:
                     note=f'百炼视频生成 {failed_count} 个失败，积分补偿',
                 )
 
+    async def generate_and_save_test(self, profile_id, img_url, subject_type, batch_size=2):
+        # 获取所有情绪类型
+        emotions = list(vid_prompts[subject_type]['action'].keys())
+        try:
+            # 分批处理情绪视频生成任务
+            for i in range(0, len(emotions), batch_size):
+                batch_emotions = emotions[i : i + batch_size]
+                logger.info(f'正在处理情绪批次: {batch_emotions}')
+                # 在批次之间增加延迟以减少API压力
+                if i + batch_size < len(emotions):
+                    await asyncio.sleep(10)
+            logger.info(f'{profile_id} 百炼视频生成结果已保存')
+        except Exception as e:
+            logger.error(f'{profile_id} 百炼视频生成结果保存失败: {e}')
+
 
 bl_service = BailianService()
 

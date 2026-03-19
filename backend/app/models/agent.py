@@ -91,6 +91,7 @@ class Profile(BaseModel, TimestampMixin):
     profile_vid = fields.TextField(null=True, description='形象展示视频')
     avatar = fields.TextField(null=True, description='头像')
     deleted_at = fields.DatetimeField(null=True, index=True, description='软删除时间')
+    task_id = fields.CharField(max_length=64, null=True, index=True, description='celery任务ID')
 
 
 # 系统提示词表

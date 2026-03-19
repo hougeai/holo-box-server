@@ -161,6 +161,8 @@ class HttpAuditLogMiddleware(BaseHTTPMiddleware):
             # 确保 JSONField 字段不为空
             if not data.get('args'):
                 data['args'] = None
+            if not data.get('body'):
+                data['body'] = None
             # 如果body不是JSON格式，将其包装成JSON格式存储
             if data.get('body') and not isinstance(data.get('body'), (dict, list)):
                 data['body'] = {'raw_response': data.get('body')}

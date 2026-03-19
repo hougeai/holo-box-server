@@ -125,6 +125,7 @@ class ProfileCreate(BaseModel):
     profile_vid: Optional[str] = Field(default=None, description='形象展示视频')
     avatar: Optional[str] = Field(default=None, description='头像')
     deleted_at: Optional[datetime] = Field(default=None, description='软删除时间')
+    task_id: Optional[str] = Field(default=None, description='celery任务ID')
 
 
 class ProfileUpdate(ProfileCreate): ...
