@@ -116,11 +116,14 @@ def test_vid_status():
     # 生成视频
     # data = {'id': 92, 'method': 'bailian'}
     # response = client.post('agent/profile/generate-vid', json=data, headers=headers)
+    # 生成单个视频
+    # data = {'id': 92, 'method': 'bailian', 'emotion': 'happy'}
+    # response = client.post('agent/profile/generate-vid-edit', json=data, headers=headers)
     # 测试查询任务状态
-    # params = {'task_id': 'b55d48fe-3a11-4ae2-8ce9-e4755726560c'}
-    # response = client.get('agent/profile/task-status/', params=params, headers=headers)
+    params = {'task_id': '95571497-e042-4314-9b22-d1f4bc0f08cc'}
+    response = client.get('agent/profile/task-status/', params=params, headers=headers)
     # 测试视频
-    response = client.get('agent/profile/', params={'id': 92}, headers=headers)
+    # response = client.get('agent/profile/', params={'id': 92}, headers=headers)
     print(response.status_code)
     print(response.json())
 

@@ -8,7 +8,7 @@ from core.background import CTX_USER_ID
 from core.log import logger
 from core.xz_api import xz_service
 from core.profile_api import bl_service, llm
-from core.celery_app import generate_video_task, celery_app
+from core.celery_app import generate_videos, generate_single_video, celery_app
 from core.minio import oss
 from core.config import settings
 from core.mcp_manager import mcp_manager
@@ -392,8 +392,8 @@ async def generate_vid(
     # await BgTasks.add_task(
     #     bl_service.generate_and_save, obj.id, obj.gen_img, obj.subject_type, 2
     # )  # 响应返回前端之后，fastapi会自动执行这个后台任务
-    task = generate_video_task.delay(obj.id, obj.gen_img, obj.subject_type, 2)
-    logger.info(f'开始执行视频生成任务: task_id={task.id}')
+    task = generate_videos.delay(obj.id, obj.gen_img, obj.subject_type, 2)
+    logger.info(f'提交视频生成任务: profile_id={obj_in.id}, task_id={task.id}')
     # 更新profile
     obj.method = obj_in.method
     obj.status = 'processing'
@@ -411,27 +411,16 @@ async def generate_vid_edit(
     if not obj:
         return Fail(code=400, msg='请先创建形象第一步获取形象id')
     # 根据不同方法创建形象
-    if obj_in.method == 'bailian':
-        video_url, msg = await bl_service.generate_video(obj.gen_img, obj.subject_type, emotion=obj_in.emotion)
-        if not video_url:
-            logger.error(f'生成形象视频失败: {msg}')
-            return Fail(code=400, msg=f'生成形象视频失败: {msg}')
-        # 下载百炼生成的视频并上传到 oss
-        video_key = f'profile/vid/{obj_in.id}/{obj_in.emotion}.mp4'
-        video_data, content_type = await bl_service.download_file(video_url, 'video/mp4')
-        # 转换视频尺寸
-        resized_data = await resize_video_in_memory(video_data)
-        if not resized_data:
-            return Fail(code=400, msg='视频转换失败')
-        result = await oss.upload_file_async(video_key, file_data=resized_data, content_type=content_type)
-        if not result:
-            logger.error('上传生成视频失败')
-            return Fail(code=400, msg='上传生成视频失败')
-        video_url = f'{settings.OSS_BUCKET_URL}/{video_key}'
-        video_hash = hashlib.sha256(video_data).hexdigest()
-        return Success(data={'video_url': video_url, 'video_hash': video_hash})
-    else:
+    if obj_in.method != 'bailian':
         return Fail(code=400, msg=f'{obj_in.method} 方法暂不支持')
+
+    # 提交任务
+    task = generate_single_video.delay(
+        profile_id=obj_in.id, gen_img=obj.gen_img, subject_type=obj.subject_type, emotion=obj_in.emotion
+    )
+    logger.info(f'提交单个视频生成任务: profile_id={obj_in.id}, task_id={task.id}')
+
+    return Success(data={'task_id': task.id})
 
 
 @router.get('/profile/', summary='查询形象详情')
@@ -451,11 +440,10 @@ async def get_task_status(
 ):
     """只查Redis，用于实时监控"""
     result = celery_app.AsyncResult(task_id)
-    return Success(
-        data={
-            'status': result.status  # PENDING: 排队 | STARTED: 执行 | SUCCESS: 成功 | FAILURE: 失败 | RETRY: 重试
-        }
-    )
+    data = {'status': result.status}
+    if result.status == 'SUCCESS' and result.result:
+        data['result'] = result.result
+    return Success(data=data)
 
 
 @router.post('/profile/upload-vid', summary='手动创建形象：上传视频文件，返回url')
