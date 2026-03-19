@@ -78,6 +78,7 @@ const aigcForm = ref({
   generating: false,
   generateProgress: 0,
   generateStatus: 'default',
+  taskId: null, // Celery任务ID
 })
 
 // 情绪列表
@@ -396,12 +397,14 @@ const startGenerate = async () => {
     aigcForm.value.generateProgress = 0
     aigcForm.value.generateStatus = 'default'
 
-    const res = await api.profileGenerateVid({
+    const res = await api.profileGenerateVidEdit({
       id: aigcForm.value.profileId,
+      emotion: 'neutral', // 默认生成neutral情绪
       method: 'bailian',
     })
 
     if (res.code === 200) {
+      aigcForm.value.taskId = res.data.task_id
       $message.success('视频生成任务已提交，正在生成中...')
       startPolling()
     } else {
@@ -421,21 +424,39 @@ const startPolling = () => {
 
   pollTimer = setInterval(async () => {
     try {
-      const res = await api.getProfile({ id: aigcForm.value.profileId })
+      if (!aigcForm.value.taskId) {
+        clearInterval(pollTimer)
+        return
+      }
+
+      const res = await api.getProfileStatus({ task_id: aigcForm.value.taskId })
       if (res.code === 200) {
-        const profile = res.data
+        const { status } = res.data
         retryCount++
 
         // 根据轮询次数估算进度，总轮询次数为maxRetries
         aigcForm.value.generateProgress = Math.floor((retryCount / maxRetries) * 100)
-        if (profile.status === 'success') {
+
+        if (status === 'SUCCESS') {
           clearInterval(pollTimer)
           aigcForm.value.generating = false
           aigcForm.value.generateStatus = 'success'
           aigcForm.value.generateProgress = 100
+
+          // 更新本地数据
+          const profileRes = await api.getProfile({ id: aigcForm.value.profileId })
+          if (profileRes.code === 200) {
+            modalForm.value = profileRes.data
+          }
+
           $message.success('表情视频生成完成')
           createModalVisible.value = false
           $table.value?.handleSearch()
+        } else if (status === 'FAILURE') {
+          clearInterval(pollTimer)
+          aigcForm.value.generating = false
+          aigcForm.value.generateStatus = 'error'
+          $message.error('视频生成失败，请稍后重试')
         } else if (retryCount >= maxRetries) {
           clearInterval(pollTimer)
           aigcForm.value.generating = false
@@ -452,6 +473,8 @@ const startPolling = () => {
 // 编辑模式
 const editVideoUping = ref({})
 const editVideoGening = ref({})
+const editVideoTaskIds = ref({}) // 保存任务ID
+const editVideoPollTimers = ref({}) // 保存轮询定时器
 // 编辑模式：上传视频
 const handleEditVideoUpload = async (emotion, fileList, target = 'gen_vids') => {
   const file = fileList?.fileList?.[fileList.fileList.length - 1]?.file
@@ -500,24 +523,53 @@ const handleGenerateVideo = async (emotion) => {
     })
 
     if (res.code === 200) {
-      if (!modalForm.value.gen_vids) {
-        modalForm.value.gen_vids = {}
-      }
-      modalForm.value.gen_vids[emotion] = {
-        url: res.data.video_url,
-        hash: res.data.video_hash,
-        status: 'success',
-        msg: '',
-      }
-      $message.success(`${emotions.find((e) => e.key === emotion).label}视频生成成功`)
+      const taskId = res.data.task_id
+      editVideoTaskIds.value[emotion] = taskId
+
+      // 开始轮询
+      const maxRetries = 60
+      let retryCount = 0
+
+      editVideoPollTimers.value[emotion] = setInterval(async () => {
+        try {
+          const statusRes = await api.getProfileStatus({ task_id: taskId })
+          if (statusRes.code === 200) {
+            const { status } = statusRes.data
+            retryCount++
+
+            if (status === 'SUCCESS') {
+              clearInterval(editVideoPollTimers.value[emotion])
+              editVideoGening.value[emotion] = false
+
+              // 获取最新数据
+              const profileRes = await api.getProfile({ id: modalForm.value.id })
+              if (profileRes.code === 200) {
+                modalForm.value = profileRes.data
+              }
+
+              $message.success(`${emotions.find((e) => e.key === emotion).label}视频生成成功`)
+            } else if (status === 'FAILURE') {
+              clearInterval(editVideoPollTimers.value[emotion])
+              editVideoGening.value[emotion] = false
+              $message.error(`${emotions.find((e) => e.key === emotion).label}视频生成失败`)
+            } else if (retryCount >= maxRetries) {
+              clearInterval(editVideoPollTimers.value[emotion])
+              editVideoGening.value[emotion] = false
+              $message.warning(`${emotions.find((e) => e.key === emotion).label}生成超时`)
+            }
+          }
+        } catch (e) {
+          console.error('轮询失败:', e)
+        }
+      }, 10000)
     } else {
+      editVideoGening.value[emotion] = false
       $message.error(res.msg || '视频生成失败')
     }
   } catch (error) {
     console.error(error)
-    $message.error('视频生成失败')
-  } finally {
     editVideoGening.value[emotion] = false
+    $message.error('视频生成失败')
   }
 }
 

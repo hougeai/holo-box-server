@@ -13,6 +13,7 @@ from core.profile_api import bl_service
 from core.utils import resize_video_in_memory
 from core.minio import oss
 from core.log import logger
+from models.agent import Profile
 
 # Redis broker URL (存储待执行的任务-消费队列)
 broker_url = f'redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/0'
@@ -127,17 +128,21 @@ def generate_single_video(self, profile_id: int, gen_img: str, subject_type: str
         if not result:
             raise Exception('上传视频失败')
 
-        # 5. 计算hash并返回结果
+        # 5. 计算hash并保存到数据库
         final_url = f'{settings.OSS_BUCKET_URL}/{video_key}'
         video_hash = hashlib.sha256(video_data).hexdigest()
 
-        return {'video_url': final_url, 'video_hash': video_hash, 'emotion': emotion}
+        profile = await Profile.get(id=profile_id)
+        if profile:
+            gen_vids = profile.gen_vids or {}
+            gen_vids[emotion] = {'url': final_url, 'hash': video_hash, 'status': 'success'}
+            profile.gen_vids = gen_vids
+            await profile.save(update_fields=['gen_vids'])
 
     try:
         logger.info(f'开始生成单个视频: profile_id={profile_id}, emotion={emotion}')
-        result = asyncio.run(_run())
+        asyncio.run(_run())
         logger.info(f'单个视频生成完成: profile_id={profile_id}, emotion={emotion}')
-        return result
     except Exception as e:
         logger.error(f'单个视频生成失败: profile_id={profile_id}, emotion={emotion}, error={e}')
         raise self.retry(exc=e, countdown=60)

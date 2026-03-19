@@ -56,6 +56,7 @@ export default {
   profileGenerateVidEdit: (data = {}) =>
     request.post('/agent/profile/generate-vid-edit', data, { timeout: 240000 }),
   getProfile: (params = {}) => request.get('/agent/profile/', { params }),
+  getProfileStatus: (params = {}) => request.get('/agent/profile/task-status/', { params }),
   profileUploadVid: (data = {}) => request.post('/agent/profile/upload-vid', data),
   updateProfile: (data = {}) => request.post('/agent/profile/update', data),
   deleteProfile: (params = {}) => request.delete('/agent/profile/delete', { params }),
