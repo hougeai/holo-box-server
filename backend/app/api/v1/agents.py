@@ -440,7 +440,10 @@ async def get_task_status(
 ):
     """只查Redis，用于实时监控"""
     result = celery_app.AsyncResult(task_id)
-    return Success(data={'status': result.status})
+    data = {'status': result.status}
+    if result.status == 'SUCCESS' and result.result:
+        data['result'] = result.result
+    return Success(data=data)
 
 
 @router.post('/profile/upload-vid', summary='手动创建形象：上传视频文件，返回url')

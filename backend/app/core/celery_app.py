@@ -135,14 +135,17 @@ def generate_single_video(self, profile_id: int, gen_img: str, subject_type: str
         profile = await Profile.get(id=profile_id)
         if profile:
             gen_vids = profile.gen_vids or {}
-            gen_vids[emotion] = {'url': final_url, 'hash': video_hash, 'status': 'success'}
+            gen_vids[emotion] = {'url': final_url, 'hash': video_hash, 'status': 'success', 'msg': ''}
             profile.gen_vids = gen_vids
             await profile.save(update_fields=['gen_vids'])
 
+        return {'url': final_url, 'hash': video_hash}
+
     try:
         logger.info(f'开始生成单个视频: profile_id={profile_id}, emotion={emotion}')
-        asyncio.run(_run())
+        result = asyncio.run(_run())
         logger.info(f'单个视频生成完成: profile_id={profile_id}, emotion={emotion}')
+        return result
     except Exception as e:
         logger.error(f'单个视频生成失败: profile_id={profile_id}, emotion={emotion}, error={e}')
         raise self.retry(exc=e, countdown=60)

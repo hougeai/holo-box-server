@@ -534,19 +534,23 @@ const handleGenerateVideo = async (emotion) => {
         try {
           const statusRes = await api.getProfileStatus({ task_id: taskId })
           if (statusRes.code === 200) {
-            const { status } = statusRes.data
+            const { status, result } = statusRes.data // 如果没有result属性，result=undefined
             retryCount++
-
             if (status === 'SUCCESS') {
               clearInterval(editVideoPollTimers.value[emotion])
               editVideoGening.value[emotion] = false
-
-              // 获取最新数据
-              const profileRes = await api.getProfile({ id: modalForm.value.id })
-              if (profileRes.code === 200) {
-                modalForm.value = profileRes.data
+              // 更新当前emotion的视频
+              if (result?.url) {
+                if (!modalForm.value.gen_vids) {
+                  modalForm.value.gen_vids = {}
+                }
+                modalForm.value.gen_vids[emotion] = {
+                  url: result.url,
+                  hash: result.hash,
+                  status: 'success',
+                  msg: '',
+                }
               }
-
               $message.success(`${emotions.find((e) => e.key === emotion).label}视频生成成功`)
             } else if (status === 'FAILURE') {
               clearInterval(editVideoPollTimers.value[emotion])
