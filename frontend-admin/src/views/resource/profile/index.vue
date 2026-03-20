@@ -970,7 +970,7 @@ const columns = [
   {
     title: '状态',
     key: 'status',
-    width: 30,
+    width: 40,
     align: 'center',
     render(row) {
       return h(

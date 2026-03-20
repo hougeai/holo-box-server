@@ -24,7 +24,7 @@
       </n-card>
 
       <!-- 卡片区域 -->
-      <n-card title="新增统计" size="small" :segmented="true" mt-15 rounded-10>
+      <n-card title="全量统计" size="small" :segmented="true" mt-15 rounded-10>
         <n-grid :x-gap="36" :y-gap="12" :cols="3" item-responsive justify-items-center>
           <n-grid-item v-for="(card, index) in cards" :key="index">
             <n-card size="small" :bordered="false">
@@ -37,7 +37,7 @@
                   <div text-24 font-bold mb-2 text-center>{{ card.number }}</div>
                   <div text-14>
                     <span text-green-500>{{ card.trend }}</span>
-                    <span text-gray-500 ml-2>较昨天</span>
+                    <span text-gray-500 ml-2>今日新增</span>
                   </div>
                 </div>
                 <div h-60 w-120 :ref="(el) => (trendRefs[index] = el)"></div>
@@ -49,13 +49,7 @@
       <!-- 图表区域 -->
       <n-card size="small" :bordered="false" mt-15 rounded-10>
         <template #header>
-          <div flex justify-between items-center>
-            <span>交互统计</span>
-            <n-radio-group v-model:value="statType" size="small">
-              <n-radio-button value="chat">对话量</n-radio-button>
-              <n-radio-button value="consume">新增量</n-radio-button>
-            </n-radio-group>
-          </div>
+          <span>近一周新增</span>
         </template>
         <div ref="chartRef" h-300></div>
       </n-card>
@@ -64,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import * as echarts from 'echarts'
 import { useUserStore } from '@/store'
 import TheIcon from '@/components/icon/TheIcon.vue'
@@ -116,17 +110,33 @@ const cards = ref([])
 // 获取卡片统计数据
 async function fetchCardsData() {
   try {
-    const [userRes, deviceRes, mcpRes] = await Promise.all([
+    const [userRes, deviceRes, profileRes] = await Promise.all([
       api.getUserList({ page: 1, page_size: 999999 }),
       api.getDeviceList({ page: 1, page_size: 999999 }),
-      api.getMCPList({ page: 1, page_size: 999999 }),
+      api.getProfileList({ page: 1, page_size: 999999 }),
     ])
+
+    // 存储原始数据供图表使用
+    rawData.value.users = userRes.data || []
+    rawData.value.devices = deviceRes.data || []
+    rawData.value.profiles = profileRes.data || []
+
+    // 过滤今日新增
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const userTodayCount =
+      rawData.value.users.filter((u) => new Date(u.create_at) >= today).length || 0
+    const deviceTodayCount =
+      rawData.value.devices.filter((d) => new Date(d.create_at) >= today).length || 0
+    const profileTodayCount =
+      rawData.value.profiles.filter((p) => new Date(p.create_at) >= today).length || 0
 
     cards.value = [
       {
         title: '用户数量',
         number: userRes.total || '0',
-        trend: '+88%',
+        trend: `+${userTodayCount}`,
         icon: 'fluent-color:person-feedback-16',
         color: '#409EFF',
         data: [820, 932, 901, 934, 1290, 1330, 1320],
@@ -134,15 +144,15 @@ async function fetchCardsData() {
       {
         title: '设备数量',
         number: deviceRes.total || '0',
-        trend: '+70%',
+        trend: `+${deviceTodayCount}`,
         icon: 'icon-park:devices',
         color: '#67C23A',
         data: [720, 832, 901, 934, 1290, 1330, 1320],
       },
       {
-        title: 'MCP服务数量',
-        number: mcpRes.total || '0',
-        trend: '+99%',
+        title: '形象数量',
+        number: profileRes.total || '0',
+        trend: `+${profileTodayCount}`,
         icon: 'icon-park:personal-collection',
         color: '#E6A23C',
         data: [620, 732, 801, 934, 1290, 1330, 1320],
@@ -154,7 +164,7 @@ async function fetchCardsData() {
       {
         title: '用户数量',
         number: '0',
-        trend: '0%',
+        trend: '+0',
         icon: 'fluent-color:person-feedback-16',
         color: '#409EFF',
         data: [820, 932, 901, 934, 1290, 1330, 1320],
@@ -162,15 +172,15 @@ async function fetchCardsData() {
       {
         title: '设备数量',
         number: '0',
-        trend: '0%',
+        trend: '+0',
         icon: 'icon-park:devices',
         color: '#67C23A',
         data: [720, 832, 901, 934, 1290, 1330, 1320],
       },
       {
-        title: 'MCP服务数量',
+        title: '形象数量',
         number: '0',
-        trend: '0%',
+        trend: '+0',
         icon: 'icon-park:personal-collection',
         color: '#E6A23C',
         data: [620, 732, 801, 934, 1290, 1330, 1320],
@@ -235,79 +245,50 @@ function getLastDays(num = 7) {
   return { days, start_times, end_times }
 }
 
-// 交互统计数据
-const statType = ref('chat')
+// 近一周新增数据
 const chartRef = ref(null)
 const chartData = ref({
   xAxis: [],
   series: [
-    { name: '对话次数', data: [] },
-    { name: '对话人数', data: [] },
+    { name: '新增用户', data: [] },
+    { name: '新增设备', data: [] },
   ],
 })
 
-// 获取交互统计数据
+// 存储获取到的原始数据
+const rawData = ref({
+  users: [],
+  devices: [],
+  profiles: [],
+})
+
+// 获取近一周新增数据
 async function fetchChartData() {
   const { days, start_times, end_times } = getLastDays(7)
   // 清空数据，防止累加
   chartData.value.series[0].data = []
   chartData.value.series[1].data = []
-  if (statType.value === 'chat') {
-    chartData.value.series[0].name = '对话次数'
-    chartData.value.series[1].name = '对话人数'
-    try {
-      // 获取所有对话数据
-      const res = await api.getConversationList({
-        page: 1,
-        page_size: 999999,
+  chartData.value.xAxis = days
+
+  try {
+    // 按天统计新增用户和设备数（使用已获取的数据）
+    for (let i = 0; i < days.length; i++) {
+      const startTime = new Date(start_times[i])
+      const endTime = new Date(end_times[i])
+      const dayUsers = rawData.value.users.filter((item) => {
+        const itemDate = new Date(item.create_at)
+        return itemDate >= startTime && itemDate <= endTime
       })
-      // 按天统计对话次数和人数
-      for (let i = 0; i < days.length; i++) {
-        const startTime = new Date(start_times[i])
-        const endTime = new Date(end_times[i])
-        const dayConversations = res.data.filter((item) => {
-          const itemDate = new Date(item.create_at)
-          return itemDate >= startTime && itemDate <= endTime
-        })
-        const dialogCount = dayConversations.length
-        const uniqueUsers = new Set(dayConversations.map((item) => item.user_id))
-        chartData.value.series[0].data.push(dialogCount)
-        chartData.value.series[1].data.push(uniqueUsers.size)
-      }
-      chartData.value.xAxis = days
-      initChart()
-    } catch (e) {
-      $message?.error('获取对话统计数据失败，请稍后重试', e)
+      const dayDevices = rawData.value.devices.filter((item) => {
+        const itemDate = new Date(item.create_at)
+        return itemDate >= startTime && itemDate <= endTime
+      })
+      chartData.value.series[0].data.push(dayUsers.length)
+      chartData.value.series[1].data.push(dayDevices.length)
     }
-  } else {
-    chartData.value.series[0].name = '新增用户'
-    chartData.value.series[1].name = '新增设备'
-    try {
-      // 获取最近7天的所有用户和设备数据
-      const [userRes, deviceRes] = await Promise.all([
-        api.getUserList({ page: 1, page_size: 999999 }),
-        api.getDeviceList({ page: 1, page_size: 999999 }),
-      ])
-      // 按天统计新增用户和设备数
-      for (let i = 0; i < days.length; i++) {
-        const startTime = new Date(start_times[i])
-        const endTime = new Date(end_times[i])
-        const dayUsers = userRes.data.filter((item) => {
-          const itemDate = new Date(item.create_at)
-          return itemDate >= startTime && itemDate <= endTime
-        })
-        const dayDevices = deviceRes.data.filter((item) => {
-          const itemDate = new Date(item.create_at)
-          return itemDate >= startTime && itemDate <= endTime
-        })
-        chartData.value.series[0].data.push(dayUsers.length)
-        chartData.value.series[1].data.push(dayDevices.length)
-      }
-      chartData.value.xAxis = days
-      initChart()
-    } catch (e) {
-      $message?.error('获取新增统计数据失败，请稍后重试', e)
-    }
+    initChart()
+  } catch (e) {
+    $message?.error('获取全量统计数据失败，请稍后重试', e)
   }
 }
 
@@ -344,9 +325,6 @@ function initChart() {
   }
   chartInstance.setOption(option)
 }
-
-// 监听 statType 切换
-watch(statType, fetchChartData)
 
 onMounted(async () => {
   await fetchStatisticData()
