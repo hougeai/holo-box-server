@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel, Field
 from models.enums import GiftType, PointsFlowType
 
@@ -49,6 +50,12 @@ class RechargeCreate(BaseModel):
 class RechargeUpdate(BaseModel):
     id: int = Field(description='ID')
     is_paid: Optional[bool] = Field(default=None, description='是否已支付')
+
+
+class RefundCreate(BaseModel):
+    trade_id: str = Field(description='原交易订单号')
+    amount: Decimal = Field(description='退款金额')
+    reason: Optional[str] = Field(default='', description='退款原因')
 
 
 # ========== Gift ==========

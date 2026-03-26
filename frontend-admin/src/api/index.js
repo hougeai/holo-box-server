@@ -100,6 +100,7 @@ export default {
   getRechargeList: (params = {}) => request.get('/finance/recharge/list', { params }),
   createRecharge: (data = {}) => request.post('/finance/recharge/create', data),
   getRechargeStatus: (params = {}) => request.get('/finance/recharge/', { params }),
+  createRefund: (data = {}) => request.post('/finance/refund/create', data),
   // user-gift
   getGiftList: (params = {}) => request.get('/finance/gift/list', { params }),
   createGift: (data = {}) => request.post('/finance/gift/create', data),

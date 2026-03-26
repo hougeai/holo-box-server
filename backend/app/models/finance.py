@@ -36,8 +36,11 @@ class Recharge(BaseModel, TimestampMixin):
     amount = fields.DecimalField(max_digits=10, decimal_places=2, index=True, description='充值金额')
     payment_method = fields.CharField(max_length=20, null=True, description='支付方式')
     points = fields.BigIntField(description='获得积分')
-    trade_id = fields.TextField(null=True, description='交易ID')
+    trade_id = fields.CharField(max_length=64, null=True, index=True, description='交易ID')
+    refund_id = fields.CharField(max_length=64, null=True, index=True, description='退款单号')
     is_paid = fields.BooleanField(default=False, index=True, description='是否已支付')
+    is_refunded = fields.BooleanField(default=False, index=True, description='是否已退款')
+    refund_amount = fields.DecimalField(max_digits=10, decimal_places=2, null=True, description='退款金额')
 
     class Meta:
         table = 'recharge'

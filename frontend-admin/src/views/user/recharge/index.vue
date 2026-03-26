@@ -1,5 +1,5 @@
 <script setup>
-import { h, onMounted, ref } from 'vue'
+import { h, onMounted, ref, resolveDirective } from 'vue'
 import {
   NTag,
   NTooltip,
@@ -8,6 +8,11 @@ import {
   NAlert,
   NDescriptions,
   NDescriptionsItem,
+  NButton,
+  NModal,
+  NFormItem,
+  NInputNumber,
+  NForm,
 } from 'naive-ui'
 import QRCode from 'qrcode.vue'
 
@@ -28,6 +33,21 @@ const isPolling = ref(false)
 const pollTimer = ref(null)
 const pollCount = ref(0)
 const MAX_POLL_COUNT = 10 // 最大轮询次数，每次5秒
+const vPermission = resolveDirective('permission')
+
+// 退款弹窗相关
+const refundModalVisible = ref(false)
+const refundModalLoading = ref(false)
+const refundFormRef = ref(null)
+const refundForm = ref({
+  trade_id: '',
+  amount: null,
+  reason: '',
+})
+const currentRechargeRow = ref(null)
+
+// 刷新按钮loading状态
+const refreshingRowId = ref(null)
 
 const { modalVisible, modalTitle, modalLoading, modalForm, modalFormRef, handleAdd } = useCRUD({
   name: '充值',
@@ -89,7 +109,7 @@ const columns = [
   {
     title: '订单号',
     key: 'trade_id',
-    width: 60,
+    width: 40,
     align: 'center',
     ellipsis: { tooltip: true },
   },
@@ -106,10 +126,36 @@ const columns = [
       ),
   },
   {
+    title: '退款状态',
+    key: 'is_refunded',
+    width: 30,
+    align: 'center',
+    render: (row) =>
+      row.is_refunded
+        ? h(NTag, { type: 'error', size: 'small' }, { default: () => '已退款' })
+        : row.is_paid
+          ? h(NTag, { type: 'info', size: 'small' }, { default: () => '未退款' })
+          : null,
+  },
+  {
+    title: '退款金额',
+    key: 'refund_amount',
+    width: 30,
+    align: 'center',
+    render: (row) => (row.refund_amount ? `¥${row.refund_amount}` : '-'),
+  },
+  {
+    title: '退款号',
+    key: 'refund_id',
+    width: 40,
+    align: 'center',
+    ellipsis: { tooltip: true },
+  },
+  {
     title: '创建时间',
     key: 'create_at',
     align: 'center',
-    width: 70,
+    width: 40,
     ellipsis: { tooltip: true },
     render: (row) => h('span', {}, row.create_at !== null ? formatDateTime(row.create_at) : null),
   },
@@ -117,10 +163,42 @@ const columns = [
     title: '更新时间',
     key: 'update_at',
     align: 'center',
-    width: 70,
+    width: 40,
     ellipsis: { tooltip: true },
     render(row) {
       return h('span', {}, row.update_at !== null ? formatDateTime(row.update_at) : null)
+    },
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 60,
+    align: 'center',
+    fixed: 'right',
+    render(row) {
+      return [
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'warning',
+            style: 'margin-right: 8px;',
+            disabled: !row.is_paid || row.refund_amount > 0,
+            onClick: () => handleOpenRefund(row),
+          },
+          { default: () => '退款' },
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            loading: refreshingRowId.value === row.id,
+            onClick: () => handleRefresh(row),
+          },
+          { default: () => '刷新' },
+        ),
+      ]
     },
   },
 ]
@@ -156,6 +234,82 @@ const validateRecharge = {
       trigger: ['change', 'blur'],
     },
   ],
+}
+
+// 退款表单验证
+const validateRefund = {
+  amount: [
+    {
+      required: true,
+      message: '请输入退款金额',
+      trigger: ['input', 'blur'],
+      type: 'number',
+      transform: (value) => Number(value),
+    },
+    {
+      type: 'number',
+      min: 0.01,
+      message: '退款金额不能小于0.01元',
+      trigger: ['input', 'blur'],
+      transform: (value) => Number(value),
+    },
+  ],
+}
+
+// 打开退款弹窗
+const handleOpenRefund = (row) => {
+  currentRechargeRow.value = row
+  refundForm.value = {
+    trade_id: row.trade_id,
+    amount: row.amount, // 默认为订单金额
+    reason: '',
+  }
+  refundModalVisible.value = true
+}
+
+// 提交退款
+const handleRefundSubmit = async () => {
+  try {
+    await refundFormRef.value?.validate()
+    refundModalLoading.value = true
+
+    // 调用退款接口
+    const res = await api.createRefund({
+      trade_id: refundForm.value.trade_id,
+      amount: refundForm.value.amount,
+      reason: refundForm.value.reason,
+    })
+
+    if (res.code === 200) {
+      $message.success('退款成功')
+      refundModalVisible.value = false
+      $table.value?.handleSearch()
+    } else {
+      $message.error(res.msg || '退款失败')
+    }
+  } catch (error) {
+    console.error('退款失败:', error)
+  } finally {
+    refundModalLoading.value = false
+  }
+}
+
+// 刷新支付状态
+const handleRefresh = async (row) => {
+  try {
+    refreshingRowId.value = row.id
+    const res = await api.getRechargeStatus({ trade_id: row.trade_id })
+    if (res.code === 200) {
+      $message.success(res.data.is_paid ? '支付成功' : '支付状态已更新')
+      $table.value?.handleSearch()
+    } else {
+      $message.error(res.msg || '查询失败')
+    }
+  } catch (error) {
+    console.error('刷新支付状态失败:', error)
+  } finally {
+    refreshingRowId.value = null
+  }
 }
 
 // 覆盖 handleSave 实现自定义支付流程
@@ -368,5 +522,51 @@ onMounted(() => {
         </NButton>
       </div>
     </CrudModal>
+    <!-- 退款弹窗 -->
+    <NModal
+      v-model:show="refundModalVisible"
+      preset="dialog"
+      title="退款"
+      :positive-text="'确定'"
+      :negative-text="'取消'"
+      :loading="refundModalLoading"
+      @positive-click="handleRefundSubmit"
+    >
+      <NForm
+        ref="refundFormRef"
+        :model="refundForm"
+        :rules="validateRefund"
+        label-placement="left"
+        label-width="100"
+        style="margin-top: 20px"
+      >
+        <NFormItem label="订单号">
+          <span>{{ refundForm.trade_id }}</span>
+        </NFormItem>
+        <NFormItem label="原支付金额">
+          <span>{{ currentRechargeRow?.amount }} 元</span>
+        </NFormItem>
+        <NFormItem label="退款金额" path="amount">
+          <NInputNumber
+            v-model:value="refundForm.amount"
+            :min="0.01"
+            :max="currentRechargeRow?.amount"
+            :precision="2"
+            placeholder="请输入退款金额"
+            class="w-full"
+          >
+            <template #suffix>元</template>
+          </NInputNumber>
+        </NFormItem>
+        <NFormItem label="退款原因">
+          <NInput
+            v-model:value="refundForm.reason"
+            type="textarea"
+            placeholder="请输入退款原因（可选）"
+            :autosize="{ minRows: 3, maxRows: 5 }"
+          />
+        </NFormItem>
+      </NForm>
+    </NModal>
   </CommonPage>
 </template>

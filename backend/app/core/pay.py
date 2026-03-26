@@ -489,6 +489,10 @@ class PaymentService:
         """微信支付退款"""
         return await asyncio.to_thread(self.wxpay_api.refund, out_trade_no, out_refund_no, amount, reason)
 
+    async def query_wx_refund(self, out_refund_no: str) -> Dict[str, Any]:
+        """查询微信退款状态"""
+        return await asyncio.to_thread(self.wxpay_api.query_refund, out_refund_no)
+
     def verify_wxpay_notification(self, headers, body: str) -> bool:
         """验证微信支付回调"""
         # 微信支付回调头使用大写字母，如 Wechatpay-Timestamp
