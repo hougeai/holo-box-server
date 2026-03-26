@@ -1,3 +1,5 @@
+import random
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Query
 from tortoise.expressions import Q
@@ -126,9 +128,8 @@ async def create_recharge(obj_in: RechargeCreate):
 
     if payment_method not in ['wechat', 'alipay']:
         return Fail(msg='支付方式只支持wechat/alipay')
-    if payment_method == 'wechat':
-        return Fail(msg='微信支付待接入')
-    elif payment_method == 'alipay':
+
+    if payment_method == 'alipay':
         result = await payment_service.create_payment(amount=amount, subject='全息盒子')
         if result.get('success', False):
             trade_id = result['data']['out_trade_no']
@@ -147,18 +148,53 @@ async def create_recharge(obj_in: RechargeCreate):
         else:
             return Fail(msg=result.get('error', ''))
 
+    elif payment_method == 'wechat':
+        # 微信支付需要用户的 openid，从用户表查询
+        user = await User.filter(user_id=user_id).first()
+        if not user:
+            return Fail(msg='用户不存在')
+        if not user.openid:
+            return Fail(msg='用户未绑定微信 openid')
+        # 生成商户订单号（必传）
+        trade_id = datetime.now().strftime('%Y%m%d%H%M%S%f') + f'{random.randint(1000, 9999):04d}'
+        # 创建微信支付订单
+        result = await payment_service.create_wx_payment(
+            amount=amount, description='全息盒子', out_trade_no=trade_id, openid=user.openid
+        )
+        if result.get('success', False):
+            obj = await Recharge.create(
+                user_id=user_id,
+                amount=amount,
+                payment_method=payment_method,
+                points=int(amount * settings.POINTS_PRICE_RATE),
+                trade_id=trade_id,
+                is_paid=False,
+            )
+            # 返回小程序调起支付所需的参数
+            return Success(data=result)
+        else:
+            return Fail(msg=result.get('error', ''))
+
 
 @router.get('/recharge/', summary='查询充值订单状态')
 async def get_recharge_status(trade_id: str = Query(..., description='交易ID')):
     obj = await Recharge.filter(trade_id=trade_id).first()
     if not obj:
         return Fail(msg='Invalid Order ID')
-    # 查询充值状态
-    if obj.payment_method == 'alipay' and not obj.is_paid:
-        result = await payment_service.query_payment(out_trade_no=obj.trade_id)
-        if result.get('success', False):
-            if result['data'].get('trade_status', '') == 'TRADE_SUCCESS':
-                obj = await recharge_controller.confirm_payment(id=obj.id)
+    # 查询充值状态（仅查询未支付的订单）
+    if not obj.is_paid:
+        if obj.payment_method == 'alipay':
+            result = await payment_service.query_payment(out_trade_no=obj.trade_id)
+            if result.get('success', False):
+                if result['data'].get('trade_status', '') == 'TRADE_SUCCESS':
+                    obj = await recharge_controller.confirm_payment(id=obj.id)
+        elif obj.payment_method == 'wechat':
+            result = await payment_service.query_wx_payment(out_trade_no=obj.trade_id)
+            if result.get('success', False):
+                # 微信支付成功状态: SUCCESS
+                trade_state = result.get('data', {}).get('trade_state', '')
+                if trade_state == 'SUCCESS':
+                    obj = await recharge_controller.confirm_payment(id=obj.id)
     data = await obj.to_dict(exclude_fields=['id'])
     return Success(data=data)
 

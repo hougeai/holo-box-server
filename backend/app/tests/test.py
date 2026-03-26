@@ -128,15 +128,36 @@ def test_vid_status():
     print(response.json())
 
 
+async def test_wx_payment():
+    """测试微信支付函数"""
+    from core.pay import payment_service
+    from datetime import datetime
+    import random
+
+    # 模拟数据
+    amount = 0.01
+    description = '全息盒子'
+    out_trade_no = datetime.now().strftime('%Y%m%d%H%M%S%f') + f'{random.randint(1000, 9999):04d}'
+    openid = 'olEt111x4E_RFFyY1cb9QuqWN_Uk'
+
+    result = await payment_service.create_wx_payment(
+        amount=amount, description=description, out_trade_no=out_trade_no, openid=openid
+    )
+    print('=== 微信支付测试结果 ===')
+    with open('0wx.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(result, indent=2, ensure_ascii=False))
+
+
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()
     # test_ota()
     # test_template()
-    test_vid_status()
-    # import asyncio
+    # test_vid_status()
+    import asyncio
 
     # asyncio.run(test_xz())
     # asyncio.run(test_wx())
     # asyncio.run(test_profile())
     # asyncio.run(test_resizevid())
+    asyncio.run(test_wx_payment())

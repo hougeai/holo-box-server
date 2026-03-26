@@ -11,8 +11,8 @@ deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-updates main contrib non
 deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-backports main contrib non-free non-free-firmware\n\
 deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware" \
 > /etc/apt/sources.list
-# 安装 FFmpeg 用于音频处理
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+# 安装 FFmpeg 和 OpenSSL
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg openssl && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # 设置工作目录
 WORKDIR /app

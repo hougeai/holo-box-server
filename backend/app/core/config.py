@@ -67,6 +67,13 @@ class Settings(BaseSettings):
     ALIPAY_APP_PRIVATE_KEY: str = os.getenv('ALIPAY_APP_PRIVATE_KEY', '')
     ALIPAY_PUBLIC_KEY: str = os.getenv('ALIPAY_PUBLIC_KEY', '')
     ALIPAY_NOTIFY_URL: str = os.getenv('ALIPAY_NOTIFY_URL', '')
+    # 微信支付 V3
+    WECHAT_MCH_ID: str = os.getenv('WECHAT_MCH_ID', '')
+    WECHAT_API_V3_KEY: str = os.getenv('WECHAT_API_V3_KEY', '')
+    WECHAT_MCH_CERT: str = os.getenv('WECHAT_MCH_CERT', '')
+    WECHAT_MCH_KEY: str = os.getenv('WECHAT_MCH_KEY', '')
+    WECHAT_PLATFORM_CERT: str = os.getenv('WECHAT_PLATFORM_CERT', '')
+    WECHAT_NOTIFY_URL: str = os.getenv('WECHAT_NOTIFY_URL', '')
     # 永久有效时间
     PERMANENT_EXPIRED_AT: datetime = datetime(2099, 12, 31)
     # 1元兑换积分数量

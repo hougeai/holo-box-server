@@ -49,3 +49,55 @@ async def alipay_notify(request: Request):
         logger.warning(f'未知的交易状态: {trade_status}')
     # 返回成功响应给支付宝，必须是纯文本格式的"success"
     return Response(content='success', media_type='text/plain')
+
+
+@router.post('/wechat/notify', summary='微信支付异步通知回调')
+async def wechat_notify(request: Request):
+    # 获取请求头和请求体
+    headers = dict(request.headers)
+    body = await request.body()
+    body_str = body.decode('utf-8')
+    logger.info(f'收到微信支付异步通知: {body_str}')
+
+    # 验证签名
+    is_valid = payment_service.verify_wxpay_notification(headers, body_str)
+    if not is_valid:
+        logger.error('微信支付异步通知签名验证失败')
+        raise HTTPException(status_code=400, detail='Invalid signature')
+
+    # 解析通知内容
+    notify_data = payment_service.parse_wxpay_notification(body_str)
+    if not notify_data:
+        logger.error('微信支付通知内容解析失败')
+        raise HTTPException(status_code=400, detail='Parse failed')
+
+    # 获取订单号和支付状态
+    out_trade_no = notify_data.get('out_trade_no', '')
+    trade_state = notify_data.get('trade_state', '')
+
+    if not out_trade_no:
+        logger.error('微信支付通知缺少订单号')
+        raise HTTPException(status_code=400, detail='Missing order number')
+
+    # 处理支付成功
+    if trade_state == 'SUCCESS':
+        try:
+            obj = await Recharge.filter(trade_id=out_trade_no).first()
+            if not obj:
+                logger.warning(f'订单 {out_trade_no} 不存在')
+                raise HTTPException(status_code=404, detail='Order not found')
+            if not obj.is_paid:
+                await recharge_controller.confirm_payment(id=obj.id)
+                logger.info(f'微信支付订单 {out_trade_no} 已确认充值')
+            else:
+                logger.info(f'订单 {out_trade_no} 已经处理过，无需重复处理')
+        except Exception as e:
+            if isinstance(e, HTTPException):
+                raise
+            logger.error(f'处理订单 {out_trade_no} 时出错: {str(e)}')
+            raise HTTPException(status_code=500, detail='Internal server error')
+    else:
+        logger.warning(f'微信支付状态: {trade_state}')
+
+    # 返回成功响应给微信
+    return Response(content='{"code":"SUCCESS","message":"成功"}', media_type='application/json')

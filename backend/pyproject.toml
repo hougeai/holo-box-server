@@ -87,6 +87,7 @@ dependencies = [
     "fastmcp>=1.0",
     "pypinyin>=0.55.0",
     "celery>=5.6.2",
+    "pycryptodome>=3.23.0",
 ]
 
 

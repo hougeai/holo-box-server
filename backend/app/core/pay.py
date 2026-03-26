@@ -1,11 +1,14 @@
 import os
 import json
+import time
+import base64
 import asyncio
 import random
+import requests
+import subprocess
 
-# import traceback
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
 from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
@@ -19,6 +22,12 @@ from alipay.aop.api.domain.AlipayTradeCloseModel import AlipayTradeCloseModel
 from alipay.aop.api.domain.AlipayTradeCancelModel import AlipayTradeCancelModel
 from alipay.aop.api.response.AlipayTradePayResponse import AlipayTradePayResponse
 from alipay.aop.api.util.SignatureUtils import verify_with_rsa
+
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA256
+from Crypto.Cipher import AES
+
 from .config import settings
 from .log import logger
 
@@ -175,17 +184,330 @@ class AlipayAPI:
         return datetime.now().strftime('%Y%m%d%H%M%S%f') + f'{random.randint(1000, 9999):04d}'
 
 
+class WXPayAPI:
+    """微信支付 V3 API"""
+
+    def __init__(self):
+        self.mch_id = settings.WECHAT_MCH_ID
+        self.api_v3_key = settings.WECHAT_API_V3_KEY
+        self.cert_path = settings.WECHAT_MCH_CERT
+        self.key_path = settings.WECHAT_MCH_KEY
+        self.platform_cert_path = settings.WECHAT_PLATFORM_CERT
+        self.notify_url = settings.WECHAT_NOTIFY_URL
+        self.appid = settings.MP_APPID
+        self.base_url = 'https://api.mch.weixin.qq.com'
+
+        # 验证配置
+        if not all([self.mch_id, self.api_v3_key, self.cert_path, self.key_path]):
+            raise ValueError('微信支付配置不完整，请检查环境变量')
+
+        # 验证证书文件存在
+        if not os.path.exists(self.cert_path):
+            raise FileNotFoundError(f'商户证书不存在: {self.cert_path}')
+        if not os.path.exists(self.key_path):
+            raise FileNotFoundError(f'商户私钥不存在: {self.key_path}')
+
+        # 获取证书序列号
+        try:
+            result = subprocess.run(
+                ['openssl', 'x509', '-in', self.cert_path, '-noout', '-serial'],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            # 序列号格式: serial=75CC581567F7482701BBB6C2CA323654AE5663B3
+            self.cert_serial = result.stdout.strip().split('=')[1]
+        except Exception as e:
+            logger.error(f'获取证书序列号失败: {e}')
+            raise ValueError('获取证书序列号失败')
+
+        logger.info(f'微信支付配置: mch_id={self.mch_id}, appid={self.appid}, cert_serial={self.cert_serial}')
+
+    def _get_sign(self, method: str, url: str, timestamp: str, nonce_str: str, body: str = '') -> str:
+        """生成签名"""
+        # 构造签名串
+        message = f'{method}\n{url}\n{timestamp}\n{nonce_str}\n{body}\n'
+        # 读取私钥
+        with open(self.key_path, 'r') as f:
+            private_key = RSA.import_key(f.read())
+        # 计算签名
+        signer = PKCS1_v1_5.new(private_key)
+        hash_obj = SHA256.new(message.encode('utf-8'))
+        signature = base64.b64encode(signer.sign(hash_obj)).decode('utf-8')
+        return signature
+
+    def _get_auth_string(self, method: str, url: str, body: str = '') -> str:
+        """生成 Authorization 头"""
+        timestamp = str(int(time.time()))
+        nonce_str = self._generate_nonce()
+        signature = self._get_sign(method, url, timestamp, nonce_str, body)
+        auth = f'WECHATPAY2-SHA256-RSA2048 mchid="{self.mch_id}",nonce_str="{nonce_str}",timestamp="{timestamp}",serial_no="{self.cert_serial}",signature="{signature}"'
+        return auth
+
+    def _generate_nonce(self) -> str:
+        """生成随机字符串"""
+        import random
+        import string
+
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+    def _request(self, method: str, url: str, body: str = None, need_cert: bool = True) -> Dict[str, Any]:
+        """发送请求"""
+        # 拼接完整 URL（用于实际请求，但签名只用路径）
+        full_url = f'{self.base_url}{url}'
+
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+
+        try:
+            if method in ['POST', 'PUT', 'DELETE']:
+                headers['Authorization'] = self._get_auth_string(method, url, body or '')
+            else:
+                headers['Authorization'] = self._get_auth_string(method, url)
+
+            cert = (self.cert_path, self.key_path) if need_cert else None
+
+            response = requests.request(
+                method=method,
+                url=full_url,
+                data=body.encode('utf-8') if body else None,
+                headers=headers,
+                cert=cert,
+                timeout=30,
+            )
+
+            logger.info(f'微信支付请求: {method} {url}, 状态码: {response.status_code}')
+
+            try:
+                data = response.json()
+                logger.info(f'微信支付响应: {data}')
+            except json.JSONDecodeError:
+                return {'success': False, 'error': response.text, 'status_code': response.status_code}
+
+            if response.status_code in [200, 204]:
+                return {'success': True, 'data': data}
+            else:
+                return {'success': False, 'error': data.get('message', data), 'code': data.get('code')}
+
+        except Exception as e:
+            logger.error(f'微信支付请求失败: {e}')
+            return {'success': False, 'error': str(e)}
+
+    def create_order(self, amount: float, description: str, out_trade_no: str, openid: str) -> Dict[str, Any]:
+        """统一下单"""
+        url = '/v3/pay/transactions/jsapi'
+
+        # 注意：金额单位是分
+        total = int(amount * 100)
+
+        params = {
+            'appid': self.appid,
+            'mchid': self.mch_id,
+            'description': description,
+            'out_trade_no': out_trade_no,
+            'notify_url': self.notify_url,
+            'amount': {'total': total, 'currency': 'CNY'},
+            'payer': {'openid': openid},
+        }
+
+        body = json.dumps(params, ensure_ascii=False)
+        result = self._request('POST', url, body)
+
+        if result['success']:
+            # 返回调起支付需要的参数
+            prepay_id = result['data'].get('prepay_id')
+            if prepay_id:
+                # 生成签名返回给小程序
+                pay_params = self._get_jsapi_params(prepay_id)
+                return {'success': True, 'data': pay_params, 'prepay_id': prepay_id}
+
+        return result
+
+    def _get_jsapi_params(self, prepay_id: str) -> Dict[str, Any]:
+        """生成小程序调起支付的参数"""
+        timestamp = str(int(time.time()))
+        nonce_str = self._generate_nonce()
+
+        # 签名顺序：appid\ntimestamp\nnoncestr\nprepay_id\n
+        message = f'{self.appid}\n{timestamp}\n{nonce_str}\n{prepay_id}\n'
+
+        with open(self.key_path, 'r') as f:
+            private_key = RSA.import_key(f.read())
+
+        signer = PKCS1_v1_5.new(private_key)
+        hash_obj = SHA256.new(message.encode('utf-8'))
+        signature = base64.b64encode(signer.sign(hash_obj)).decode('utf-8')
+
+        return {
+            'appId': self.appid,
+            'timeStamp': timestamp,
+            'nonceStr': nonce_str,
+            'package': f'prepay_id={prepay_id}',
+            'signType': 'RSA',
+            'paySign': signature,
+        }
+
+    def query_order(self, out_trade_no: str) -> Dict[str, Any]:
+        """查询订单"""
+        url = f'/v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={self.mch_id}'
+        return self._request('GET', url)
+
+    def close_order(self, out_trade_no: str) -> Dict[str, Any]:
+        """关闭订单"""
+        url = f'/v3/pay/transactions/out-trade-no/{out_trade_no}/close'
+        params = {'mchid': self.mch_id}
+        body = json.dumps(params)
+        return self._request('POST', url, body)
+
+    def refund(self, out_trade_no: str, out_refund_no: str, amount: float, reason: str = '') -> Dict[str, Any]:
+        """退款"""
+        url = '/v3/refund/domestic/refunds'
+
+        refund_amount = int(amount * 100)
+
+        params = {
+            'out_trade_no': out_trade_no,
+            'out_refund_no': out_refund_no,
+            'reason': reason,
+            'notify_url': self.notify_url,
+            'amount': {'refund': refund_amount, 'total': refund_amount, 'currency': 'CNY'},
+        }
+
+        body = json.dumps(params, ensure_ascii=False)
+        return self._request('POST', url, body)
+
+    def query_refund(self, out_refund_no: str) -> Dict[str, Any]:
+        """查询退款"""
+        url = f'/v3/refund/domestic/refunds/{out_refund_no}'
+        return self._request('GET', url)
+
+    def verify_callback(self, timestamp: str, nonce_str: str, body: str, signature: str, serial_no: str) -> bool:
+        """验证回调签名"""
+        try:
+            # 检查时间戳是否过期（5分钟内）
+            current_time = int(time.time())
+            callback_time = int(timestamp)
+            if abs(current_time - callback_time) > 300:  # 5分钟 = 300秒
+                logger.error(f'微信支付回调时间戳已过期: {timestamp}')
+                return False
+
+            # 构造签名串（注意：最后有换行符）
+            message = f'{timestamp}\n{nonce_str}\n{body}\n'
+
+            # 读取平台证书
+            if not os.path.exists(self.platform_cert_path):
+                logger.error(f'平台证书不存在: {self.platform_cert_path}')
+                return False
+
+            with open(self.platform_cert_path, 'r') as f:
+                public_key = RSA.import_key(f.read())
+
+            # 验证签名
+            verifier = PKCS1_v1_5.new(public_key)
+            hash_obj = SHA256.new(message.encode('utf-8'))
+
+            try:
+                verifier.verify(hash_obj, base64.b64decode(signature))
+                return True
+            except ValueError:
+                logger.error('微信支付回调签名验证失败')
+                return False
+
+        except Exception as e:
+            logger.error(f'验证回调签名异常: {e}')
+            return False
+
+    def decrypt_callback(self, ciphertext: str, nonce: str, associated_data: str) -> Optional[Dict]:
+        """解密回调内容（使用 AES-256-GCM）"""
+        try:
+            # APIv3 密钥是 32 字节
+            key = self.api_v3_key.encode('utf-8')
+            nonce_bytes = nonce.encode('utf-8')
+            associated_data_bytes = associated_data.encode('utf-8') if associated_data else b''
+
+            # Base64 解码
+            ciphertext_bytes = base64.b64decode(ciphertext)
+
+            # AES-256-GCM 解密
+            cipher = AES.new(key, AES.MODE_GCM, nonce=nonce_bytes)
+            if associated_data_bytes:
+                cipher.update(associated_data_bytes)
+
+            # 解密（最后16字节是 auth tag）
+            plaintext = cipher.decrypt_and_verify(ciphertext_bytes[:-16], ciphertext_bytes[-16:])
+
+            # 解析 JSON
+            result = json.loads(plaintext.decode('utf-8'))
+            return result
+
+        except Exception as e:
+            logger.error(f'解密回调内容失败: {e}')
+            return None
+
+
 class PaymentService:
     def __init__(self):
         self.alipay_api = AlipayAPI()
+        self.wxpay_api = WXPayAPI()
 
     async def create_payment(self, amount: float, subject: str, out_trade_no: str = None) -> Dict[str, Any]:
-        """创建支付订单（供外部调用的异步接口）"""
+        """创建支付宝支付订单"""
         return await asyncio.to_thread(self.alipay_api.create_order, amount, subject, out_trade_no)
 
     async def query_payment(self, out_trade_no: str) -> Dict[str, Any]:
-        """查询订单状态（供外部调用的异步接口）"""
+        """查询支付宝订单状态"""
         return await asyncio.to_thread(self.alipay_api.query_order, out_trade_no)
+
+    # ====== 微信支付接口 ======
+
+    async def create_wx_payment(
+        self, amount: float, description: str, out_trade_no: str, openid: str
+    ) -> Dict[str, Any]:
+        """创建微信支付订单"""
+        return await asyncio.to_thread(self.wxpay_api.create_order, amount, description, out_trade_no, openid)
+
+    async def query_wx_payment(self, out_trade_no: str) -> Dict[str, Any]:
+        """查询微信支付订单"""
+        return await asyncio.to_thread(self.wxpay_api.query_order, out_trade_no)
+
+    async def close_wx_payment(self, out_trade_no: str) -> Dict[str, Any]:
+        """关闭微信支付订单"""
+        return await asyncio.to_thread(self.wxpay_api.close_order, out_trade_no)
+
+    async def refund_wx_payment(
+        self, out_trade_no: str, out_refund_no: str, amount: float, reason: str = ''
+    ) -> Dict[str, Any]:
+        """微信支付退款"""
+        return await asyncio.to_thread(self.wxpay_api.refund, out_trade_no, out_refund_no, amount, reason)
+
+    def verify_wxpay_notification(self, headers: Dict[str, str], body: str) -> bool:
+        """验证微信支付回调"""
+        timestamp = headers.get('Wechatpay-Timestamp', '')
+        nonce_str = headers.get('Wechatpay-Nonce', '')
+        signature = headers.get('Wechatpay-Signature', '')
+        serial_no = headers.get('Wechatpay-Serial', '')
+        return self.wxpay_api.verify_callback(timestamp, nonce_str, body, signature, serial_no)
+
+    def parse_wxpay_notification(self, body: str) -> Optional[Dict]:
+        """解析微信支付回调"""
+        try:
+            data = json.loads(body)
+            # 从 resource 字段中获取加密数据
+            resource = data.get('resource', {})
+            ciphertext = resource.get('ciphertext', '')
+            nonce = resource.get('nonce', '')
+            associated_data = resource.get('associated_data', '')
+
+            if not ciphertext:
+                logger.error('通知内容缺少 ciphertext')
+                return None
+
+            return self.wxpay_api.decrypt_callback(ciphertext, nonce, associated_data)
+        except Exception as e:
+            logger.error(f'解析通知失败: {e}')
+            return None
 
 
 # 创建支付服务实例
