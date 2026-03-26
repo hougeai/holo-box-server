@@ -330,8 +330,10 @@ class WXPayAPI:
         timestamp = str(int(time.time()))
         nonce_str = self._generate_nonce()
 
-        # 签名顺序：appid\ntimestamp\nnoncestr\nprepay_id\n
-        message = f'{self.appid}\n{timestamp}\n{nonce_str}\n{prepay_id}\n'
+        # 签名顺序：appid\ntimestamp\nnoncestr\npackage\n
+        # package 格式是 prepay_id=xxx
+        package = f'prepay_id={prepay_id}'
+        message = f'{self.appid}\n{timestamp}\n{nonce_str}\n{package}\n'
 
         with open(self.key_path, 'r') as f:
             private_key = RSA.import_key(f.read())
@@ -344,7 +346,7 @@ class WXPayAPI:
             'appId': self.appid,
             'timeStamp': timestamp,
             'nonceStr': nonce_str,
-            'package': f'prepay_id={prepay_id}',
+            'package': package,
             'signType': 'RSA',
             'paySign': signature,
         }
