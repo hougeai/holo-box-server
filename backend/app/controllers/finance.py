@@ -161,6 +161,67 @@ class RechargeController(CRUDBase[Recharge, RechargeCreate, RechargeUpdate]):
             using_db=conn,
         )
 
+    async def can_refund(self, recharge: Recharge, refund_amount: float) -> tuple[bool, str]:
+        """检查充值记录是否可以退款"""
+        # 只支持微信支付退款
+        if recharge.payment_method != 'wechat':
+            return False, '仅支持微信支付订单退款'
+
+        # 订单必须已支付
+        if not recharge.is_paid:
+            return False, '订单未支付,无法退款'
+
+        # 订单是否已退款
+        if recharge.is_refunded:
+            return False, '订单已退款'
+
+        # 检查退款金额不能超过支付金额
+        if refund_amount > recharge.amount:
+            return False, f'退款金额不能超过支付金额: 原金额{recharge.amount} 退金额{refund_amount}'
+
+        # 查询该充值记录对应的 PointsGrant
+        grant = await PointsGrant.filter(source_type='recharge', source_id=recharge.id).first()
+        if not grant:
+            return False, '未找到对应的积分记录'
+
+        # 检查剩余积分是否和充值时获得的积分一致
+        if grant.amount < recharge.points:
+            return False, f'积分已使用,无法退款: 原充值{recharge.points}积分,剩余{grant.amount}积分'
+
+        return True, ''
+
+    async def confirm_refund(self, id: int) -> Recharge:
+        """确认退款并扣减积分"""
+        recharge = await Recharge.get(id=id)
+        if not recharge:
+            raise ValueError('充值记录不存在')
+        if recharge.is_refunded:
+            return recharge
+
+        async with in_transaction(settings.TORTOISE_ORM['apps']['models']['default_connection']) as conn:
+            recharge.is_refunded = True
+            await recharge.save(using_db=conn)
+
+            # 查询对应的 PointsGrant
+            grant = await PointsGrant.filter(source_type='recharge', source_id=recharge.id).first()
+            if grant and grant.amount > 0:
+                # 将剩余积分置为0
+                grant.amount = 0
+                await grant.save(using_db=conn)
+
+                # 记录积分流水
+                balance = await pointsflow_controller.get_balance(recharge.user_id, conn)
+                await PointsFlow.create(
+                    user_id=recharge.user_id,
+                    flow_type=PointsFlowType.REFUND,
+                    amount=-recharge.points,
+                    balance=balance,
+                    grant_ids=[grant.id],
+                    using_db=conn,
+                )
+
+        return recharge
+
 
 # ========== Gift ==========
 class GiftController(CRUDBase[Gift, GiftCreate, GiftUpdate]):

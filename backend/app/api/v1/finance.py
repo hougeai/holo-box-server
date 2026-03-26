@@ -198,13 +198,13 @@ async def get_recharge_status(trade_id: str = Query(..., description='交易ID')
                     obj = await recharge_controller.confirm_payment(id=obj.id)
     elif obj.refund_id:
         # 如果有退款单号，查询微信退款状态
-        result = await payment_service.query_wx_refund(out_refund_no=obj.refund_id)
-        if result.get('success', False):
-            status = result.get('data', {}).get('status', '')
-            if status == 'SUCCESS':
-                # 更新本地退款状态
-                obj.is_refunded = True
-                await obj.save()
+        if obj.payment_method == 'wechat':
+            result = await payment_service.query_wx_refund(out_refund_no=obj.refund_id)
+            if result.get('success', False):
+                status = result.get('data', {}).get('status', '')
+                if status == 'SUCCESS':
+                    # 确认退款并扣减积分
+                    obj = await recharge_controller.confirm_refund(id=obj.id)
 
     data = await obj.to_dict(exclude_fields=['id'])
     return Success(data=data)
@@ -217,17 +217,10 @@ async def create_refund(obj_in: RefundCreate):
     if not recharge:
         return Fail(code=404, msg='订单不存在')
 
-    # 只支持微信支付退款
-    if recharge.payment_method != 'wechat':
-        return Fail(msg='仅支持微信支付订单退款')
-
-    # 订单必须已支付
-    if not recharge.is_paid:
-        return Fail(msg='订单未支付，无法退款')
-
-    # 检查退款金额不能超过支付金额
-    if obj_in.amount > recharge.amount:
-        return Fail(msg=f'退款金额不能超过支付金额: 原金额{recharge.amount} 退金额{obj_in.amount}')
+    # 检查是否可以退款
+    can_refund, reason = await recharge_controller.can_refund(recharge, obj_in.amount)
+    if not can_refund:
+        return Fail(msg=reason or '无法退款')
 
     # 生成退款单号
     out_refund_no = datetime.now().strftime('%Y%m%d%H%M%S%f') + f'{random.randint(1000, 9999):04d}'

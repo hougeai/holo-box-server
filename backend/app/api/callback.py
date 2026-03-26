@@ -96,8 +96,6 @@ async def wechat_notify(request: Request):
                 else:
                     logger.info(f'订单 {out_trade_no} 已经处理过，无需重复处理')
             except Exception as e:
-                if isinstance(e, HTTPException):
-                    raise
                 logger.error(f'处理订单 {out_trade_no} 时出错: {str(e)}')
                 raise HTTPException(status_code=500, detail='Internal server error')
         else:
@@ -113,8 +111,7 @@ async def wechat_notify(request: Request):
                     logger.warning(f'订单 {out_trade_no} 不存在')
                     raise HTTPException(status_code=404, detail='Order not found')
                 if not obj.is_refunded:
-                    obj.is_refunded = True
-                    await obj.save()
+                    await recharge_controller.confirm_refund(id=obj.id)
                     logger.info(f'微信退款订单 {out_trade_no} 已确认退款，退款金额: {obj.refund_amount}')
                 else:
                     logger.info(f'订单 {out_trade_no} 退款已处理过，无需重复处理')

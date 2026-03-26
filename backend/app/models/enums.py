@@ -49,3 +49,4 @@ class PointsFlowType(str, Enum):
     GIFT = 'gift'  # 赠送
     ORDER = 'order'  # 订单消费
     EXPIRE = 'expire'  # 过期扣减
+    REFUND = 'refund'  # 退款扣减
