@@ -54,13 +54,12 @@ async def alipay_notify(request: Request):
 @router.post('/wechat/notify', summary='微信支付异步通知回调')
 async def wechat_notify(request: Request):
     # 获取请求头和请求体
-    headers = dict(request.headers)
     body = await request.body()
     body_str = body.decode('utf-8')
     logger.info(f'收到微信支付异步通知: {body_str}')
 
-    # 验证签名
-    is_valid = payment_service.verify_wxpay_notification(headers, body_str)
+    # 验证签名 - 使用 request.headers 直接获取（保持原始大小写）
+    is_valid = payment_service.verify_wxpay_notification(request.headers, body_str)
     if not is_valid:
         logger.error('微信支付异步通知签名验证失败')
         raise HTTPException(status_code=400, detail='Invalid signature')

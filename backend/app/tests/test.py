@@ -148,6 +148,14 @@ async def test_wx_payment():
         f.write(json.dumps(result, indent=2, ensure_ascii=False))
 
 
+def test_finance():
+    headers = {'token': 'dev'}
+    params = {'trade_id': '202603262043214472622324'}
+    response = client.get('finance/recharge/', params=params, headers=headers)
+    print(response.status_code)
+    print(response.json())
+
+
 if __name__ == '__main__':
     # test_wxlogin()
     # test_oss()

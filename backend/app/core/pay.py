@@ -389,8 +389,13 @@ class WXPayAPI:
         """验证回调签名"""
         try:
             # 检查时间戳是否过期（5分钟内）
-            current_time = int(time.time())
-            callback_time = int(timestamp)
+            try:
+                current_time = int(time.time())
+                callback_time = int(timestamp)
+            except ValueError:
+                logger.error(f'微信支付回调时间戳无效: {timestamp}')
+                return False
+
             if abs(current_time - callback_time) > 300:  # 5分钟 = 300秒
                 logger.error(f'微信支付回调时间戳已过期: {timestamp}')
                 return False
@@ -484,12 +489,24 @@ class PaymentService:
         """微信支付退款"""
         return await asyncio.to_thread(self.wxpay_api.refund, out_trade_no, out_refund_no, amount, reason)
 
-    def verify_wxpay_notification(self, headers: Dict[str, str], body: str) -> bool:
+    def verify_wxpay_notification(self, headers, body: str) -> bool:
         """验证微信支付回调"""
-        timestamp = headers.get('Wechatpay-Timestamp', '')
-        nonce_str = headers.get('Wechatpay-Nonce', '')
-        signature = headers.get('Wechatpay-Signature', '')
-        serial_no = headers.get('Wechatpay-Serial', '')
+        # 微信支付回调头使用大写字母，如 Wechatpay-Timestamp
+        # 但 FastAPI 的 headers 是 case-insensitive 的
+        timestamp = headers.get('Wechatpay-Timestamp') or headers.get('wechatpay-timestamp') or ''
+        nonce_str = headers.get('Wechatpay-Nonce') or headers.get('wechatpay-nonce') or ''
+        signature = headers.get('Wechatpay-Signature') or headers.get('wechatpay-signature') or ''
+        serial_no = headers.get('Wechatpay-Serial') or headers.get('wechatpay-serial') or ''
+
+        logger.info(
+            f'微信回调头: timestamp={timestamp}, nonce_str={nonce_str}, signature={signature[:20] if signature else ""}..., serial_no={serial_no}'
+        )
+
+        # 检查参数是否为空
+        if not timestamp or not nonce_str or not signature:
+            logger.error(f'回调头参数不完整: timestamp={timestamp}, nonce_str={nonce_str}, signature={signature}')
+            return False
+
         return self.wxpay_api.verify_callback(timestamp, nonce_str, body, signature, serial_no)
 
     def parse_wxpay_notification(self, body: str) -> Optional[Dict]:
