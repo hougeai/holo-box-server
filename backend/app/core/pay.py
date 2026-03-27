@@ -295,9 +295,15 @@ class WXPayAPI:
             logger.error(f'微信支付请求失败: {e}')
             return {'success': False, 'error': str(e)}
 
-    def create_order(self, amount: float, description: str, out_trade_no: str, openid: str) -> Dict[str, Any]:
-        """统一下单"""
-        url = '/v3/pay/transactions/jsapi'
+    def create_order(
+        self, amount: float, description: str, out_trade_no: str, openid: str = None, trade_type: str = 'JSAPI'
+    ) -> Dict[str, Any]:
+        """统一下单（JSAPI 或 NATIVE）"""
+        # 根据 trade_type 选择接口
+        if trade_type == 'NATIVE':
+            url = '/v3/pay/transactions/native'
+        else:
+            url = '/v3/pay/transactions/jsapi'
 
         # 注意：金额单位是分
         total = int(amount * 100)
@@ -309,19 +315,28 @@ class WXPayAPI:
             'out_trade_no': out_trade_no,
             'notify_url': self.notify_url,
             'amount': {'total': total, 'currency': 'CNY'},
-            'payer': {'openid': openid},
         }
+
+        # JSAPI 需要传 openid，NATIVE 不需要
+        if trade_type == 'JSAPI' and openid:
+            params['payer'] = {'openid': openid}
 
         body = json.dumps(params, ensure_ascii=False)
         result = self._request('POST', url, body)
 
         if result['success']:
-            # 返回调起支付需要的参数
-            prepay_id = result['data'].get('prepay_id')
-            if prepay_id:
-                # 生成签名返回给小程序
-                pay_params = self._get_jsapi_params(prepay_id)
-                return {'success': True, 'data': pay_params, 'prepay_id': prepay_id}
+            if trade_type == 'NATIVE':
+                # NATIVE 返回 code_url，用于生成二维码
+                code_url = result['data'].get('code_url')
+                if code_url:
+                    return {'success': True, 'data': {'code_url': code_url}}
+            else:
+                # JSAPI 返回调起支付需要的参数
+                prepay_id = result['data'].get('prepay_id')
+                if prepay_id:
+                    # 生成签名返回给小程序
+                    pay_params = self._get_jsapi_params(prepay_id)
+                    return {'success': True, 'data': pay_params, 'prepay_id': prepay_id}
 
         return result
 
@@ -470,10 +485,12 @@ class PaymentService:
     # ====== 微信支付接口 ======
 
     async def create_wx_payment(
-        self, amount: float, description: str, out_trade_no: str, openid: str
+        self, amount: float, description: str, out_trade_no: str, openid: str = None, trade_type: str = 'JSAPI'
     ) -> Dict[str, Any]:
         """创建微信支付订单"""
-        return await asyncio.to_thread(self.wxpay_api.create_order, amount, description, out_trade_no, openid)
+        return await asyncio.to_thread(
+            self.wxpay_api.create_order, amount, description, out_trade_no, openid, trade_type
+        )
 
     async def query_wx_payment(self, out_trade_no: str) -> Dict[str, Any]:
         """查询微信支付订单"""
@@ -501,10 +518,6 @@ class PaymentService:
         nonce_str = headers.get('Wechatpay-Nonce') or headers.get('wechatpay-nonce') or ''
         signature = headers.get('Wechatpay-Signature') or headers.get('wechatpay-signature') or ''
         serial_no = headers.get('Wechatpay-Serial') or headers.get('wechatpay-serial') or ''
-
-        logger.info(
-            f'微信回调头: timestamp={timestamp}, nonce_str={nonce_str}, signature={signature[:20] if signature else ""}..., serial_no={serial_no}'
-        )
 
         # 检查参数是否为空
         if not timestamp or not nonce_str or not signature:

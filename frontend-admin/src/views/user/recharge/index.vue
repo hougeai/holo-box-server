@@ -54,7 +54,7 @@ const { modalVisible, modalTitle, modalLoading, modalForm, modalFormRef, handleA
   initForm: {
     user_id: '',
     amount: null,
-    payment_method: 'wechat',
+    payment_method: 'wechat-native',
     trade_id: '',
     points: 0,
   },
@@ -102,7 +102,9 @@ const columns = [
       const config =
         row.payment_method === 'alipay'
           ? { type: 'info', text: '支付宝' }
-          : { type: 'success', text: '微信' }
+          : row.payment_method === 'wechat'
+            ? { type: 'success', text: '微信小程序' }
+            : { type: 'success', text: '微信扫码' }
       return h(NTag, { type: config.type, size: 'small' }, { default: () => config.text })
     },
   },
@@ -492,7 +494,7 @@ onMounted(() => {
         </NFormItem>
         <NFormItem label="支付方式" path="payment_method">
           <NRadioGroup v-model:value="modalForm.payment_method">
-            <NRadio value="wechat">微信支付</NRadio>
+            <NRadio value="wechat-native">微信支付</NRadio>
             <NRadio value="alipay">支付宝</NRadio>
           </NRadioGroup>
         </NFormItem>
