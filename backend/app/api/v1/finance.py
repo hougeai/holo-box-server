@@ -1,7 +1,7 @@
 import random
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Body
 from tortoise.expressions import Q
 from core.config import settings
 from core.pay import payment_service
@@ -123,8 +123,8 @@ async def create_recharge(obj_in: RechargeCreate):
     amount = obj_in.amount
     payment_method = obj_in.payment_method
     # 先验证user_id是否存在
-    exists = await User.filter(user_id=user_id).exists()
-    if not exists:
+    user = await User.filter(user_id=user_id).first()
+    if not user:
         return Fail(code=404, msg='用户不存在')
 
     if payment_method not in ['wechat', 'alipay']:
@@ -150,10 +150,7 @@ async def create_recharge(obj_in: RechargeCreate):
             return Fail(msg=result.get('error', ''))
 
     elif payment_method == 'wechat':
-        # 微信支付需要用户的 openid，从用户表查询
-        user = await User.filter(user_id=user_id).first()
-        if not user:
-            return Fail(msg='用户不存在')
+        # 微信支付需要用户的 openid
         if not user.openid:
             return Fail(msg='用户未绑定微信 openid')
         # 生成商户订单号（必传）
@@ -175,6 +172,45 @@ async def create_recharge(obj_in: RechargeCreate):
             return Success(data=result)
         else:
             return Fail(msg=result.get('error', ''))
+
+
+@router.post('/recharge/retry', summary='未支付订单重新充值')
+async def retry_recharge(recharge_id: int = Body(..., embed=True, description='充值订单ID')):
+    # 查询充值订单
+    recharge = await Recharge.filter(id=recharge_id).first()
+    if not recharge:
+        return Fail(code=404, msg='订单不存在')
+
+    # 仅允许未支付订单重新充值
+    if recharge.is_paid:
+        return Fail(msg='订单已支付，无需重新充值')
+
+    # 仅允许微信支付订单
+    if recharge.payment_method != 'wechat':
+        return Fail(msg='仅支持微信支付订单重新充值')
+
+    # 查询用户信息
+    user = await User.filter(user_id=recharge.user_id).first()
+    if not user:
+        return Fail(code=404, msg='用户不存在')
+    if not user.openid:
+        return Fail(msg='用户未绑定微信 openid')
+    # 生成新的商户订单号
+    trade_id = datetime.now().strftime('%Y%m%d%H%M%S%f') + f'{random.randint(1000, 9999):04d}'
+
+    # 调用微信支付
+    result = await payment_service.create_wx_payment(
+        amount=recharge.amount, description='全息盒子', out_trade_no=trade_id, openid=user.openid
+    )
+
+    if result.get('success'):
+        # 更新订单的交易ID
+        recharge.trade_id = trade_id
+        await recharge.save()
+        # 返回小程序调起支付所需的参数
+        return Success(data=result)
+    else:
+        return Fail(msg=result.get('error', ''))
 
 
 @router.get('/recharge/', summary='查询充值订单状态')

@@ -40,6 +40,7 @@ const columns = [
         gift: { type: 'info', text: '赠送' },
         order: { type: 'warning', text: '消费' },
         expire: { type: 'error', text: '过期' },
+        refund: { type: 'error', text: '退款' },
       }
       const config = typeMap[row.flow_type] || { type: 'default', text: row.flow_type }
       return h(NTag, { type: config.type, size: 'small' }, { default: () => config.text })
@@ -170,6 +171,7 @@ const columns = [
               { label: '赠送', value: 'gift' },
               { label: '消费', value: 'order' },
               { label: '过期', value: 'expire' },
+              { label: '退款', value: 'refund' },
             ]"
             @update:value="$table?.handleSearch()"
           />
