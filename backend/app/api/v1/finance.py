@@ -37,10 +37,13 @@ async def list_product(
     page: int = Query(1, description='页码'),
     page_size: int = Query(20, description='每页数量'),
     is_public: bool = Query(None, description='是否上架'),
+    name: str = Query(None, description='商品名称'),
 ):
     q = Q()
     if is_public is not None:
         q &= Q(is_public=is_public)
+    if name:
+        q &= Q(name__icontains=name)
     total, objs = await product_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
     data = [await obj.to_dict() for obj in objs]
     return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
