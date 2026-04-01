@@ -13,6 +13,7 @@ async def list_user(
     page_size: int = Query(10, description='每页数量'),
     user_name: str = Query('', description='用户名称，用于搜索'),
     email: str = Query('', description='邮箱地址'),
+    user_id: str = Query('', description='用户ID'),
 ):
     q = Q()
     if user_name:
@@ -20,6 +21,8 @@ async def list_user(
         q &= Q(username__contains=user_name)  # SQL: WHERE user_name LIKE '%xxx%'；user_name=user_name 精确匹配
     if email:
         q &= Q(email__contains=email)
+    if user_id:
+        q &= Q(user_id=user_id)
     # 当前页码 每页显示数量；返回的是总数和当前页数据列表
     total, user_objs = await user_controller.list(page=page, page_size=page_size, search=q, order=['id'])
     # to_dict在model中定义
