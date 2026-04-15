@@ -48,7 +48,6 @@ async def ota(request: Request):
     data = await request.json()
     ori_version = data['application']['version']
     mac_address = data['mac_address']
-    uuid = data['uuid']
     chip_type = data['chip_model_name']
     device_model = data['board']['type']
     res_data = {}
@@ -123,7 +122,6 @@ async def ota(request: Request):
         # 新增设备
         data = {
             'mac_address': mac_address,
-            'uuid': uuid,
             'chip_type': chip_type,
             'device_model': device_model,
             'app_version': ori_version,

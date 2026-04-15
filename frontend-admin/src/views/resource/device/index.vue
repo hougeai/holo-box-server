@@ -340,6 +340,15 @@ async function handlePush() {
             @keypress.enter="$table?.handleSearch()"
           />
         </QueryBarItem>
+        <QueryBarItem label="智能体ID" :label-width="60">
+          <NInput
+            v-model:value="queryItems.agent_id"
+            clearable
+            type="text"
+            placeholder="请输入智能体ID"
+            @keypress.enter="$table?.handleSearch()"
+          />
+        </QueryBarItem>
         <QueryBarItem label="MAC地址" :label-width="70">
           <NInput
             v-model:value="queryItems.mac_address"

@@ -430,7 +430,6 @@ async def init_device():
     if not obj:
         await Device.create(
             mac_address='97:3d:ae:e6:83:d0',
-            uuid='ab4ad1e9-0299-4880-9b0d-b96ea0a2bf3e',
             chip_type='esp32s3',
             device_model='holo-box-wifi',
             app_version='2.1.0',
@@ -715,6 +714,6 @@ async def check_mcp_status_periodically(check_interval=60):
                     mcp.status = new_status
                     await mcp.save()
                     logger.info(f'MCP {mcp.name} status updated to {new_status}')
-            logger.info('MCP status check completed')
+            # logger.info('MCP status check completed')
         except Exception as e:
             logger.error(f'Error checking MCP status: {e}')

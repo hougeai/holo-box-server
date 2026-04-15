@@ -1,9 +1,9 @@
 from tortoise import fields
-from .base import BaseModel, TimestampMixin, UUIDModel
+from .base import BaseModel, TimestampMixin
 
 
 # 设备表 默认值 null=False index=False
-class Device(BaseModel, TimestampMixin, UUIDModel):
+class Device(BaseModel, TimestampMixin):
     user_id = fields.CharField(max_length=12, null=True, index=True, description='用户ID')
     device_id = fields.CharField(max_length=20, null=True, index=True, description='设备ID')
     mac_address = fields.CharField(max_length=20, null=True, index=True, description='MAC地址')

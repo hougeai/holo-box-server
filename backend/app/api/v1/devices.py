@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 from tortoise.expressions import Q
+from core.log import logger
 from core.xz_api import xz_service
 from controllers import device_controller
 from schemas.base import Fail, Success, SuccessExtra
@@ -165,30 +166,36 @@ async def bind_device(obj_in: DeviceBind):
         await Agent.create(**{k: v for k, v in agent.items() if v is not None})
 
     # 判断是否有设备，如果没有则要创建一条设备记录
-    device = await device_controller.get_by_mac(data.get('mac_address', ''))
-    if device:
-        obj = await device_controller.update(
-            id=device.id,
-            obj_in={
+    try:
+        device = await device_controller.get_by_mac(data.get('mac_address', ''))
+        if device:
+            obj = await device_controller.update(
+                id=device.id,
+                obj_in={
+                    'user_id': user_id,
+                    'agent_id': agent_id,
+                    'device_id': data.get('id', ''),
+                    'auto_update': True if data.get('auto_update', False) else False,
+                    'serial_number': data.get('serial_number', ''),
+                },
+            )
+        else:
+            obj_in = {
+                'mac_address': data.get('mac_address', ''),
                 'user_id': user_id,
                 'agent_id': agent_id,
                 'device_id': data.get('id', ''),
                 'auto_update': True if data.get('auto_update', False) else False,
                 'serial_number': data.get('serial_number', ''),
-            },
-        )
-    else:
-        obj_in = {
-            'mac_address': data.get('mac_address', ''),
-            'user_id': user_id,
-            'agent_id': agent_id,
-            'device_id': data.get('id', ''),
-            'auto_update': True if data.get('auto_update', False) else False,
-            'serial_number': data.get('serial_number', ''),
-        }
-        obj = await device_controller.create(obj_in)
-    data = await obj.to_dict()
-    return Success(data=data, msg='绑定成功')
+            }
+            obj = await device_controller.create(obj_in)
+        data = await obj.to_dict()
+        return Success(data=data, msg='绑定成功')
+    except Exception as e:
+        import traceback
+
+        logger.error(f'设备绑定失败: {e}\n{traceback.format_exc()}')
+        return Fail(code=500, msg=f'设备绑定失败: {str(e)}')
 
 
 @router.post('/push', summary='给设备推送消息')
