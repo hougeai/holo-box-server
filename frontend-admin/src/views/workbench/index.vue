@@ -88,7 +88,7 @@ async function fetchStatisticData() {
     })
 
     statisticData.value = [
-      { id: 0, label: '充值金额', value: amount },
+      { id: 0, label: '充值金额', value: Number(amount.toFixed(2)) },
       { id: 1, label: '已支付', value: paidCount },
       { id: 2, label: '未支付', value: notPaidCount },
     ]
