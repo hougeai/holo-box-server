@@ -11,6 +11,9 @@ def build_server_command(protocol, cfg):
     """Build [cmd,...] for the server process for a given target."""
     if protocol == 'stdio':
         command = cfg.get('command')
+        # 确保使用当前虚拟环境的 python，避免 PATH 里 python 无依赖
+        if command in ('python', 'python3'):
+            command = sys.executable
         args = cfg.get('args') or []
         cmd = [command] + args
     elif protocol in ('sse', 'http'):
@@ -53,8 +56,8 @@ async def connect_with_retry(uri, mcp):
             reconnect_attempt += 1
             logger.error(f'[{mcp_id}] Process error (attempt {reconnect_attempt}): {e}')
             backoff = min(backoff * 2, 120)
-    # 最后也要清理process
-    logger.error(f'[{mcp_id}] Failed to connect after {max_retries} attempts')
+    # 重试耗尽，抛出异常让 task 标记为失败
+    raise Exception(f'[{mcp_id}] Failed to connect after {max_retries} attempts')
 
 
 async def connect_to_server(uri, mcp):
@@ -106,6 +109,12 @@ async def pipe_websocket_to_process(websocket, process, mcp_id):
             # if 'id' in msg_dict:
             #     orig_id = msg_dict['id']
             #     msg_dict['id'] = f'{orig_id}'
+            # 把小智平台带的 serialNumber 注入到 tools/call 的 arguments 里，
+            # 让 MCP server 的 tool 函数能拿到设备标识
+            if msg_dict.get('method') == 'tools/call':
+                serial = msg_dict.get('params', {}).get('serialNumber', '')
+                if serial:
+                    msg_dict['params'].setdefault('arguments', {})['serial_number'] = serial
             # write into shared process stdin (one writer per websocket task, but it's OK to write to same pipe)
             try:
                 line = (json.dumps(msg_dict, ensure_ascii=False) + '\n').encode('utf-8')
@@ -271,7 +280,47 @@ class MCPManager:
         config = obj_in.config
         protocol = obj_in.protocol
         if protocol == 'stdio':
-            return False, 'Not support stdio MCP'
+            cmd = build_server_command(protocol, config)
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    init_req = json.dumps({
+                        'jsonrpc': '2.0',
+                        'id': 1,
+                        'method': 'initialize',
+                        'params': {
+                            'protocolVersion': '2024-11-05',
+                            'capabilities': {},
+                            'clientInfo': {'name': 'test', 'version': '1.0'},
+                        },
+                    }) + '\n'
+                    proc.stdin.write(init_req.encode())
+                    await proc.stdin.drain()
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=10)
+                    if not line:
+                        return False, 'MCP 进程无响应'
+                    resp = json.loads(line.decode())
+                    if resp.get('result'):
+                        logger.info(f'[{name}] MCP stdio 测试通过')
+                        return True, ''
+                    return False, f'MCP initialize 失败: {resp.get("error", "未知")}'
+                finally:
+                    proc.terminate()
+                    try:
+                        await asyncio.wait_for(proc.wait(), timeout=5)
+                    except asyncio.TimeoutError:
+                        proc.kill()
+                        await proc.wait()
+            except asyncio.TimeoutError:
+                return False, 'MCP 进程响应超时 (10s)'
+            except Exception as e:
+                logger.error(f'[{name}] MCP stdio 测试异常: {e}')
+                return False, f'MCP 进程测试失败: {e}'
         else:
             url = config.get('url', '')
             headers = config.get('headers', {})

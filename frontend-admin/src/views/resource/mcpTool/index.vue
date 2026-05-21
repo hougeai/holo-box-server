@@ -1,6 +1,6 @@
 <script setup>
 import { h, onMounted, ref, resolveDirective, withDirectives } from 'vue'
-import { NButton, NInput, NPopconfirm, NFormItem, NTag, NSwitch, NPopover } from 'naive-ui'
+import { NButton, NInput, NPopconfirm, NFormItem, NTag, NSwitch, NPopover, NSelect, NDynamicInput } from 'naive-ui'
 import TheIcon from '@/components/icon/TheIcon.vue'
 import { formatDateTime, renderIcon, formatJSON } from '@/utils'
 import { useCRUD } from '@/composables'
@@ -12,6 +12,7 @@ defineOptions({ name: 'MCP管理' })
 const protocolOptions = [
   { label: 'sse', value: 'sse' },
   { label: 'StreamableHttp', value: 'http' },
+  { label: 'stdio', value: 'stdio' },
 ]
 
 // 将数组格式的环境变量转换为对象
@@ -100,6 +101,9 @@ const {
   name: 'MCP工具',
   initForm: {
     user_id: userStore.userId,
+    args: [],
+    env: [],
+    headers: [],
   },
   doCreate: api.createMcpTool,
   doUpdate: api.updateMcpTool,
@@ -460,6 +464,28 @@ const columns = [
               preset="pair"
               key-placeholder="Header名称"
               value-placeholder="Header值"
+            />
+          </NFormItem>
+        </template>
+        <template v-if="modalForm.protocol === 'stdio'">
+          <NFormItem label="命令" path="command" :rule="{ required: true, message: '请输入命令', trigger: ['input', 'blur'] }">
+            <NInput v-model:value="modalForm.command" clearable placeholder="例如：python 或 npx" />
+          </NFormItem>
+
+          <NFormItem label="参数">
+            <NDynamicInput
+              v-model:value="modalForm.args"
+              placeholder="请输入参数"
+              :min="0"
+            />
+          </NFormItem>
+
+          <NFormItem label="环境变量">
+            <NDynamicInput
+              v-model:value="modalForm.env"
+              preset="pair"
+              key-placeholder="变量名"
+              value-placeholder="变量值"
             />
           </NFormItem>
         </template>

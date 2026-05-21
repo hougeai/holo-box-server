@@ -114,3 +114,20 @@ class McpTool(BaseModel, TimestampMixin):
     protocol = fields.CharEnumField(McpProtocol, null=True, description='协议类型')
     config = fields.JSONField(null=True, description='配置文件')
     status = fields.CharField(max_length=12, null=True, index=True, description='服务状态')
+
+
+# 闹钟/提醒表
+class Alarm(BaseModel, TimestampMixin):
+    serial_number = fields.CharField(max_length=64, index=True, description='设备序列号（推送用）')
+    name = fields.CharField(max_length=200, description='提醒内容')
+    alarm_type = fields.CharField(max_length=10, description='闹钟类型: once / recurring')
+    delay_seconds = fields.IntField(default=0, description='一次性提醒延迟秒数')
+    cron_expr = fields.CharField(max_length=100, default='', description='周期性提醒 cron 表达式')
+    next_trigger_time = fields.DatetimeField(null=True, index=True, description='下次触发时间')
+    enabled = fields.BooleanField(default=True, index=True, description='是否启用')
+    status = fields.CharField(max_length=20, default='active', description='状态: active / disabled / triggered / expired')
+    trigger_count = fields.IntField(default=0, description='已触发次数')
+    last_triggered = fields.DatetimeField(null=True, description='上次触发时间')
+
+    class Meta:
+        table = 'alarm'

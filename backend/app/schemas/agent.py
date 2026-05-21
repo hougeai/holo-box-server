@@ -169,3 +169,18 @@ class McpToolUpdate(McpToolCreate):
     id: int = Field(description='ID')
     user_id: Optional[str] = Field(default=None, description='用户ID')
     name: Optional[str] = Field(default=None, description='MCP名称')
+
+
+# ========== Alarm ==========
+class AlarmCreate(BaseModel):
+    serial_number: str = Field(description='设备序列号')
+    name: str = Field(description='提醒内容')
+    alarm_type: str = Field(description='once / recurring')
+    delay_seconds: int = Field(default=0, description='一次性提醒延迟秒数')
+    cron_expr: str = Field(default='', description='周期性 cron 表达式')
+
+
+class AlarmUpdate(BaseModel):
+    id: int
+    enabled: Optional[bool] = None
+    name: Optional[str] = None

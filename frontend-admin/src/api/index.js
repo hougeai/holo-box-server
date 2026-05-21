@@ -74,6 +74,11 @@ export default {
   deleteMcpTool: (params = {}) => request.delete('/agent/mcp-tool/delete', { params }),
   startMcpTool: (data = {}) => request.post('/agent/mcp-tool/start', data),
   stopMcpTool: (data = {}) => request.post('/agent/mcp-tool/stop', data),
+  // resource-alarm
+  getAlarmList: (params = {}) => request.get('/agent/alarm/list', { params }),
+  createAlarm: (data = {}) => request.post('/agent/alarm/create', data),
+  updateAlarm: (data = {}) => request.post('/agent/alarm/update', data),
+  deleteAlarm: (params = {}) => request.delete('/agent/alarm/delete', { params }),
   // resource-device
   getDeviceList: (params = {}) => request.get('/device/list', { params }),
   createDevice: (data = {}) => request.post('/device/create', data),

@@ -7,9 +7,8 @@ import hashlib
 import asyncio
 from tortoise import Tortoise
 from celery import Celery, shared_task
-from celery.signals import task_prerun, worker_shutdown
+from celery.signals import task_prerun, worker_shutdown, worker_ready
 from core.config import settings
-from core.profile_api import bl_service
 from core.utils import resize_video_in_memory
 from core.minio import oss
 from core.log import logger
@@ -74,6 +73,30 @@ def close_tortoise(**kwargs):
         pass  # 已经关闭或从未初始化，忽略即可
 
 
+@worker_ready.connect
+def restore_alarm_schedules(**kwargs):
+    """Worker 启动时恢复所有未过期闹钟调度（从数据库权威重建）：覆盖的是 Redis 丢失的场景"""
+    init_tortoise()
+    import os
+    import sys
+    _app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _app_dir not in sys.path:
+        sys.path.insert(0, _app_dir)
+    from controllers.agent import alarm_controller
+
+    async def _restore():
+        await alarm_controller.restore_schedules()
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(_restore())
+    else:
+        # Celery 主进程已有 running loop，用线程安全方式提交并等待
+        future = asyncio.run_coroutine_threadsafe(_restore(), loop)
+        future.result(timeout=60)
+
+
 @shared_task(bind=True, max_retries=2)
 def generate_videos(self, profile_id: int, img_url: str, subject_type: str, batch_size: int = 2):
     """
@@ -86,6 +109,7 @@ def generate_videos(self, profile_id: int, img_url: str, subject_type: str, batc
         batch_size: 批次大小
     """
 
+    from core.profile_api import bl_service
     try:
         logger.info(f'开始执行视频生成任务: profile_id={profile_id}')
         # asyncio.run(bl_service.generate_and_save_test(profile_id, img_url, subject_type, batch_size))
@@ -107,6 +131,8 @@ def generate_single_video(self, profile_id: int, gen_img: str, subject_type: str
         subject_type: 主体类型
         emotion: 情感/动作类型
     """
+
+    from core.profile_api import bl_service
 
     async def _run():
         # 1. 生成视频
@@ -149,3 +175,15 @@ def generate_single_video(self, profile_id: int, gen_img: str, subject_type: str
     except Exception as e:
         logger.error(f'单个视频生成失败: profile_id={profile_id}, emotion={emotion}, error={e}')
         raise self.retry(exc=e, countdown=60)
+
+
+@shared_task(bind=True, max_retries=1)
+def push_alarm(self, alarm_id: int):
+    """闹钟触发：推送提醒消息给设备，周期性闹钟自动重新调度"""
+    from controllers.agent import alarm_controller  # 延迟导入，避免循环依赖
+    try:
+        logger.info(f'闹钟触发: alarm_id={alarm_id}')
+        asyncio.run(alarm_controller.trigger_alarm(alarm_id))
+    except Exception as e:
+        logger.error(f'闹钟触发失败: alarm_id={alarm_id}, error={e}')
+        raise self.retry(exc=e, countdown=30)

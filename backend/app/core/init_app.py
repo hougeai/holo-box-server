@@ -276,6 +276,17 @@ async def init_menus():
             component='/resource/mcpTool',
             keepalive=False,
         ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name='闹钟管理',
+            path='alarm',
+            order=10,
+            parent_id=parent_menu.id,
+            icon='material-symbols:alarm',
+            hidden=False,
+            component='/resource/alarm',
+            keepalive=False,
+        ),
     ]
     await Menu.bulk_create(children_menu)
 
@@ -621,14 +632,14 @@ async def init_mcps():
                     name=mcp.get('name'),
                     description=mcp.get('description'),
                     source='product',
-                    enabled=mcp.get('enabled'),
+                    enabled=mcp.get('enabled', False),
                     token=token,
                     public=False,
                 )
             )
         await McpTool.bulk_create(objs)
     # 产品MCP还要添加到manager中启动
-    mcps = await McpTool.filter(source='product').all()
+    mcps = await McpTool.filter(source='product', enabled=True).all()
     for mcp in mcps:
         data = await mcp.to_dict()
         status, msg = await mcp_manager.connect(data)

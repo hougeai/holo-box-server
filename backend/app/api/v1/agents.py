@@ -23,6 +23,7 @@ from controllers import (
     product_controller,
     productorder_controller,
     pointsflow_controller,
+    alarm_controller,
 )
 from schemas.base import Fail, Success, SuccessExtra
 from schemas.agent import (
@@ -38,6 +39,8 @@ from schemas.agent import (
     SystemPromptUpdate,
     McpToolCreate,
     McpToolUpdate,
+    AlarmCreate,
+    AlarmUpdate,
 )
 from models.agent import Agent, AgentTemplate, Voice, LLM, Profile, SystemPrompt, McpTool
 
@@ -883,4 +886,51 @@ async def delete_voice(id: int = Query(..., description='ID')):
     await Voice.filter(id=id).delete()
     if not res or res['code'] != 0:
         return Fail(code=400, msg='远端删除失败')
+    return Success(msg='删除成功')
+
+
+# ========== Alarm ==========
+@router.get('/alarm/list', summary='查看闹钟列表')
+async def list_alarms(
+    page: int = Query(1, description='页码'),
+    page_size: int = Query(999, description='每页数量'),
+    serial_number: str = Query('', description='设备序列号，用于搜索'),
+):
+    q = Q()
+    if serial_number:
+        q &= Q(serial_number=serial_number)
+    total, alarms = await alarm_controller.list(page=page, page_size=page_size, search=q, order=['-id'])
+    data = [await alarm.to_dict() for alarm in alarms]
+    return SuccessExtra(data=data, total=total, page=page, page_size=page_size)
+
+
+@router.get('/alarm/detail', summary='查询闹钟详情')
+async def get_alarm(id: int = Query(..., description='闹钟ID')):
+    alarm = await alarm_controller.get(id=id)
+    if alarm:
+        data = await alarm.to_dict()
+        return Success(data=data)
+    return Fail(code=400, msg='闹钟不存在')
+
+
+@router.post('/alarm/create', summary='创建闹钟')
+async def create_alarm(obj_in: AlarmCreate):
+    try:
+        alarm = await alarm_controller.create(obj_in)
+        data = await alarm.to_dict()
+        return Success(data=data, msg='创建成功')
+    except Exception as e:
+        return Fail(code=400, msg=f'创建闹钟失败: {str(e)}')
+
+@router.post('/alarm/update', summary='更新闹钟')
+async def update_alarm(obj_in: AlarmUpdate):
+    alarm = await alarm_controller.update(id=obj_in.id, obj_in=obj_in)
+    if alarm:
+        data = await alarm.to_dict()
+        return Success(data=data, msg='更新成功')
+    return Fail(code=400, msg='闹钟不存在')
+
+@router.delete('/alarm/delete', summary='删除闹钟')
+async def delete_alarm(id: int = Query(..., description='闹钟ID')):
+    await alarm_controller.remove(id=id)
     return Success(msg='删除成功')

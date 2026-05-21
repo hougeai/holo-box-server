@@ -11,7 +11,6 @@ from .devices import router as devices_router
 from .agents import router as agents_router
 from .resources import router as resources_router
 from .finance import router as finance_router
-
 v1_router = APIRouter()
 
 v1_router.include_router(base_router, tags=['基础模块'], prefix='/base')
