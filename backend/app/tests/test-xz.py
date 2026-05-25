@@ -21,7 +21,7 @@ def get_token():
 
 def test_agent():
     # response = client.get('/api/agents', params={'page': 1, 'pageSize': 100}, headers=headers)
-    response = client.get('/api/agents/1528624', headers=headers)
+    response = client.get('/api/agents/1537629', headers=headers)
     print(response.status_code)
     with open('0agent.json', 'w', encoding='utf-8') as f:
         f.write(json.dumps(response.json(), indent=2, ensure_ascii=False))
@@ -65,7 +65,11 @@ def test_product():
 
 
 def test_message():
-    data = {'serial_number': 'HSKJ_HOLOPOD001_01B841DA5CA31832', 'message': {'name': 'self.reboot', 'arguments': {}}}
+    # data = {'serial_number': 'HSKJ_HOLOPOD001_01B841DA5CA31832', 'message': {'name': 'self.reboot', 'arguments': {}}}
+    data = {
+        'serial_number': 'HSKJ_HOLOPOD001_01B841DA5CA31832',
+        'message': {'name': 'self.wake_up', 'arguments': {'reason': '出发 闹钟提醒时间到了，请播放相关提醒信息'}},
+    }
     response = client.post('/api/messaging/push', json=data, headers=headers)
     print(response.status_code)
     with open('0message.json', 'w', encoding='utf-8') as f:

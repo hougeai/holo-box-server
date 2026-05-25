@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import json
 import asyncio
 import aiohttp
@@ -69,9 +70,19 @@ async def connect_to_server(uri, mcp):
             # Acquire shared process for this mcp (one process per mcp_id)
             process = await process_manager.acquire(mcp)
             logger.info(f'{mcp_id} acquired MCP process')
+            # 检查子进程是否存活（404、认证失败等会导致子进程立即退出）
+            try:
+                await asyncio.wait_for(process.wait(), timeout=3.0)
+                raise RuntimeError(f'MCP process exited with code {process.returncode} shortly after startup')
+            except asyncio.TimeoutError:
+                pass  # 进程 3s 内没死，存活
             # Register this websocket with the shared process manager so stdout reader can route messages
             await process_manager.register_ws(mcp_id, websocket)
             logger.info(f'{mcp_id} registered websocket')
+            # 通知 connect() 连接已真正建立
+            event = mcp.get('_connected_event')
+            if event:
+                event.set()
             # Only create the websocket->process writer task here. The process->websocket routing is handled by the shared stdout reader in ProcessManager.
             await pipe_websocket_to_process(websocket, process, mcp_id)
             # When pipe_websocket_to_process returns, connection closed or task ended.
@@ -223,7 +234,6 @@ class ProcessManager:
                 except Exception:
                     logger.error(f'[{name}] stdout non-json line: {text!r}')
                     continue
-                logger.info(f'[{name}] stdout: {data_dict}')
                 ws = self.ws_map.get(mcp_id)
                 if ws:
                     asyncio.create_task(self._safe_send(ws, data_dict, mcp_id))
@@ -257,12 +267,17 @@ class ProcessManager:
         finally:
             logger.info(f'[{name}] stderr reader exiting')
 
+    def _decode_unicode_escapes(self, raw_text):
+        """Decode literal \\uXXXX escape sequences in string to actual Unicode chars (for log readability only)."""
+        return re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), raw_text)
+
     async def _safe_send(self, websocket, data_dict, mcp_id):
         """Send data to websocket and catch exceptions to avoid crashing the reader."""
         try:
             text = json.dumps(data_dict, ensure_ascii=False)
             await websocket.send(text)
-            logger.info(f'[Process-{mcp_id}] sent: {text}')
+            # Decode inner \uXXXX escapes for human-readable logging
+            logger.info(f'[Process-{mcp_id}] sent: {self._decode_unicode_escapes(text)}')
         except Exception as e:
             logger.warning(f'[Process-{mcp_id}] Failed sent: {e}')
 
@@ -281,24 +296,33 @@ class MCPManager:
         protocol = obj_in.protocol
         if protocol == 'stdio':
             cmd = build_server_command(protocol, config)
+            env_vars = config.get('env', {})
+            merged_env = os.environ.copy()
+            merged_env.update(env_vars)
             try:
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    env=merged_env,
                 )
                 try:
-                    init_req = json.dumps({
-                        'jsonrpc': '2.0',
-                        'id': 1,
-                        'method': 'initialize',
-                        'params': {
-                            'protocolVersion': '2024-11-05',
-                            'capabilities': {},
-                            'clientInfo': {'name': 'test', 'version': '1.0'},
-                        },
-                    }) + '\n'
+                    init_req = (
+                        json.dumps(
+                            {
+                                'jsonrpc': '2.0',
+                                'id': 1,
+                                'method': 'initialize',
+                                'params': {
+                                    'protocolVersion': '2024-11-05',
+                                    'capabilities': {},
+                                    'clientInfo': {'name': 'test', 'version': '1.0'},
+                                },
+                            }
+                        )
+                        + '\n'
+                    )
                     proc.stdin.write(init_req.encode())
                     await proc.stdin.drain()
                     line = await asyncio.wait_for(proc.stdout.readline(), timeout=10)
@@ -360,9 +384,29 @@ class MCPManager:
             logger.info(f'{id} cleanup process (may not exist): {e}')
 
         uri = f'wss://api.xiaozhi.me/mcp/?token={token}'
+        connected_event = asyncio.Event()
+        mcp['_connected_event'] = connected_event
         task = asyncio.create_task(connect_with_retry(uri, mcp))
         self.connections[id] = task
-        return True, 'Connected to MCP'
+        # 等待 connect_to_server 发送"连接真正建立"的信号（register_ws 之后），
+        # 而非靠固定超时猜测。
+        try:
+            await asyncio.wait_for(connected_event.wait(), timeout=15.0)
+            logger.info(f'[{id}] initial connection established')
+            return True, 'Connected to MCP'
+        except asyncio.TimeoutError:
+            self.connections.pop(id, None)
+            task.cancel()
+            return False, 'MCP connection timed out'
+        except asyncio.CancelledError:
+            self.connections.pop(id, None)
+            return False, 'MCP connection cancelled'
+        except Exception as e:
+            self.connections.pop(id, None)
+            logger.error(f'[{id}] connect failed shortly after start: {e}')
+            return False, f'MCP connection failed: {e}'
+        finally:
+            mcp.pop('_connected_event', None)
 
     async def disconnect(self, mcp):
         async with self._lock:
